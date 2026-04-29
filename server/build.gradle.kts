@@ -5,10 +5,15 @@ plugins {
 
 dependencies {
     implementation(enforcedPlatform(libs.quarkus.quarkusBom))
+    implementation(libs.quarkus.restClient)
     implementation(libs.quarkus.restJackson)
     implementation(libs.quarkus.arc)
     implementation(libs.quarkus.kotlin)
-    testImplementation(libs.quarkus.junit)
+    implementation(libs.quarkus.oidc)
+
+    testImplementation(libs.quarkus.junit5)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.quarkus.test.security.oidc)
 }
 
 group = "ch.wuethrich"

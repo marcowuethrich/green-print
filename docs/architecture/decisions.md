@@ -11,7 +11,6 @@ Short records of the key decisions made before feature implementation began.
 **Rationale:**
 - Quarkus has first-class OIDC support; token validation (JWKS) and role mapping are handled declaratively.
 - Decouples identity management from the app — any OIDC-compliant provider (Keycloak, Auth0, etc.) can be swapped in.
-- Integration tests spin up a real provider via **Testcontainers** (`quarkus-oidc` dev services), so tests exercise the full token lifecycle without mocking.
 
 **Consequences:**
 - The client (`shared`) must implement the OIDC Authorization Code + PKCE flow and attach the Bearer token to every API request.
