@@ -19,14 +19,26 @@ This project serves as a showcase of modern cross-platform architecture, shared 
 
 ---
 
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Multiplatform UI | Compose Multiplatform |
+| Shared client logic | Kotlin Multiplatform — Ktor Client, Koin, KMP ViewModel |
+| Backend | Quarkus / Kotlin — Hibernate Panache, quarkus-oidc |
+| Database migrations | Atlas |
+| Auth | OIDC / OAuth 2.0 (via quarkus-oidc; Testcontainers for integration tests) |
+
+---
+
 ## 📁 Project Structure
 
-This project leverages KMP to share business logic and UI across targets.
+Everything that can run on all client targets lives in `shared`. Platform-specific entry points are thin.
 
-* **`/shared`**: Core business logic and domain models shared across all targets.
-* **`/composeApp`**: Shared Compose Multiplatform UI code (`commonMain`), along with platform-specific implementations (`androidMain`, `iosMain`, `jvmMain`, `wasmJsMain`).
-* **`/iosApp`**: The iOS entry point and Xcode project. Add any iOS-native SwiftUI code here.
-* **`/server`**: The Quarkus backend application.
+* **`/shared`**: The shared client library. Contains domain DTOs, the Ktor HTTP client, Koin DI modules, and KMP ViewModels. All client-side business logic lives here; state is held in-memory. Consumed by `composeApp` on every target.
+* **`/composeApp`**: Compose Multiplatform UI (`commonMain`) and thin platform entry points (`androidMain`, `iosMain`, `jvmMain`, `wasmJsMain`). No business logic — only UI code.
+* **`/iosApp`**: The iOS Xcode project entry point.
+* **`/server`**: The Quarkus backend. Defines its own Panache entity layer (independent of the shared DTOs) and validates OIDC tokens issued by the identity provider.
 
 ---
 
@@ -68,7 +80,8 @@ Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use t
 
 ## 🚀 Roadmap
 
-- [ ] Implement core KMP architecture and shared domain models.
+- [ ] Wire up Koin DI, Ktor Client, and KMP ViewModels in `shared`.
+- [ ] Set up OIDC authentication (quarkus-oidc) with Testcontainers integration tests.
 - [ ] Set up server-side persistence with Quarkus Hibernate Panache and Atlas schema migrations.
 - [ ] Build the interactive spatial blueprint UI.
 - [ ] Add AI auto-generation using LLM vision models for automatic plant care profiles.
