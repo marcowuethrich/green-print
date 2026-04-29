@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print
+package ch.wuethrich.greenprint
 
 interface Platform {
     val name: String

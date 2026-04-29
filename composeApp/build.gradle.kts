@@ -69,11 +69,11 @@ kotlin {
 }
 
 android {
-    namespace = "ch.wuethrich.greenprint.green_print"
+    namespace = "ch.wuethrich.greenprint"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "ch.wuethrich.greenprint.green_print"
+        applicationId = "ch.wuethrich.greenprint"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -101,11 +101,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "ch.wuethrich.greenprint.green_print.MainKt"
+        mainClass = "ch.wuethrich.greenprint.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "ch.wuethrich.greenprint.green_print"
+            packageName = "ch.wuethrich.greenprint"
             packageVersion = "1.0.0"
         }
     }

@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print
+package ch.wuethrich.greenprint
 
 class JVMPlatform : Platform {
     override val name: String = "Java ${System.getProperty("java.version")}"

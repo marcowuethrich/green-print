@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print
+package ch.wuethrich.greenprint
 
 import androidx.compose.ui.window.ComposeUIViewController
 

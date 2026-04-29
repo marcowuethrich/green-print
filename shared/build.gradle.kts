@@ -63,7 +63,7 @@ kotlin {
 }
 
 android {
-    namespace = "ch.wuethrich.greenprint.green_print.shared"
+    namespace = "ch.wuethrich.greenprint.shared"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

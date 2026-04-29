@@ -1,6 +1,6 @@
-package ch.wuethrich.greenprint.green_print.di
+package ch.wuethrich.greenprint.di
 
-import ch.wuethrich.greenprint.green_print.app.AppViewModel
+import ch.wuethrich.greenprint.app.AppViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

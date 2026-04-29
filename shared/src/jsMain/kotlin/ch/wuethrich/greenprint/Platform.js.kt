@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print
+package ch.wuethrich.greenprint
 
 class JsPlatform : Platform {
     override val name: String = "Web with Kotlin/JS"

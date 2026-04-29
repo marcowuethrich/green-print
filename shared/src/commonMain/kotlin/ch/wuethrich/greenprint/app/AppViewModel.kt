@@ -1,7 +1,7 @@
-package ch.wuethrich.greenprint.green_print.app
+package ch.wuethrich.greenprint.app
 
 import androidx.lifecycle.ViewModel
-import ch.wuethrich.greenprint.green_print.Greeting
+import ch.wuethrich.greenprint.Greeting
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		1D103926D0225D59EF439FD7 /* green_print.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = green_print.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D103926D0225D59EF439FD7 /* greenprint.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = greenprint.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -59,7 +59,7 @@
 		5BF0A74E329E538FD072FFED /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1D103926D0225D59EF439FD7 /* green_print.app */,
+				1D103926D0225D59EF439FD7 /* greenprint.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = 1D103926D0225D59EF439FD7 /* green_print.app */;
+			productReference = 1D103926D0225D59EF439FD7 /* greenprint.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

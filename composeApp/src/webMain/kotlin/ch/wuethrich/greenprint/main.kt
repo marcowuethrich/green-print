@@ -1,8 +1,8 @@
-package ch.wuethrich.greenprint.green_print
+package ch.wuethrich.greenprint
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
-import ch.wuethrich.greenprint.green_print.di.initKoin
+import ch.wuethrich.greenprint.di.initKoin
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {

@@ -65,7 +65,7 @@ Or build inside a container if GraalVM is not installed locally:
 Run the native binary:
 
 ```bash
-./server/build/green_print-1.0.0-SNAPSHOT-runner
+./server/build/greenprint-1.0.0-SNAPSHOT-runner
 ```
 
 ---

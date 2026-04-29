@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print.di
+package ch.wuethrich.greenprint.di
 
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module

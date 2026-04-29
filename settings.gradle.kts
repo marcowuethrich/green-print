@@ -1,4 +1,4 @@
-rootProject.name = "green_print"
+rootProject.name = "greenprint"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {

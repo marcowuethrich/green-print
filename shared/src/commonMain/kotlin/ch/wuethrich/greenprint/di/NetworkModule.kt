@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print.di
+package ch.wuethrich.greenprint.di
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation

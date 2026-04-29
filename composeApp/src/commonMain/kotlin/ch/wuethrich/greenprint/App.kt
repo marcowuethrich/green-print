@@ -1,4 +1,4 @@
-package ch.wuethrich.greenprint.green_print
+package ch.wuethrich.greenprint
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -15,9 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import ch.wuethrich.greenprint.green_print.app.AppViewModel
-import green_print.composeapp.generated.resources.Res
-import green_print.composeapp.generated.resources.compose_multiplatform
+import ch.wuethrich.greenprint.app.AppViewModel
+import greenprint.composeapp.generated.resources.Res
+import greenprint.composeapp.generated.resources.compose_multiplatform
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
