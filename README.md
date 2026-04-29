@@ -26,7 +26,7 @@ This project leverages KMP to share business logic and UI across targets.
 * **`/shared`**: Core business logic, data models, and database management shared across all targets.
 * **`/composeApp`**: Shared Compose Multiplatform UI code (`commonMain`), along with platform-specific implementations (`androidMain`, `iosMain`, `jvmMain`, `wasmJsMain`).
 * **`/iosApp`**: The iOS entry point and Xcode project. Add any iOS-native SwiftUI code here.
-* **`/server`**: The Ktor backend application.
+* **`/server`**: The Quarkus backend application.
 
 ---
 
@@ -59,9 +59,9 @@ Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use t
 ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
 ```
 
-**☁️ Server (Ktor):**
+**☁️ Server (Quarkus):**
 ```bash
-./gradlew :server:run
+./gradlew :server:quarkusDev
 ```
 
 ---

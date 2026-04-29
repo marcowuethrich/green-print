@@ -1,23 +1,29 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.ktor)
-    application
-}
-
-group = "ch.wuethrich.greenprint.green_print"
-version = "1.0.0"
-application {
-    mainClass.set("ch.wuethrich.greenprint.green_print.ApplicationKt")
-
-    val isDevelopment: Boolean = project.ext.has("development")
-    applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
+    alias(libs.plugins.quarkus)
 }
 
 dependencies {
-    implementation(projects.shared)
-    implementation(libs.logback)
-    implementation(libs.ktor.serverCore)
-    implementation(libs.ktor.serverNetty)
-    testImplementation(libs.ktor.serverTestHost)
-    testImplementation(libs.kotlin.testJunit)
+    implementation(enforcedPlatform(libs.quarkus.quarkusBom))
+    implementation(libs.quarkus.restJackson)
+    implementation(libs.quarkus.arc)
+    implementation(libs.quarkus.kotlin)
+    testImplementation(libs.quarkus.junit)
+}
+
+group = "ch.wuethrich"
+version = "1.0.0-SNAPSHOT"
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+kotlin {
+    jvmToolchain(25)
+}
+
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+    options.compilerArgs.add("-parameters")
 }

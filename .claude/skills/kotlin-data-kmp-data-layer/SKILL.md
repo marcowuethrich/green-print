@@ -1,7 +1,7 @@
 ---
 name: kotlin-data-kmp-data-layer
 description: Use when implementing or reviewing KMP data layers, including repositories, data sources, source-of-truth design, API exposure, conflict resolution, error handling, and main-safe data operations.
-TRIGGER when: user implements or reviews Repository classes, data sources, Room/SQLDelight, Ktor/Retrofit API calls, caching, offline-first design, Flow from the data layer, or source-of-truth patterns.
+TRIGGER when: user implements or reviews Repository classes, data sources, Room/SQLDelight, Quarkus/Atlas, Ktor/Retrofit API calls, caching, offline-first design, Flow from the data layer, or source-of-truth patterns.
 SKIP: UI-only composables, navigation, build config, or state holder design above the repository boundary.
 license: Apache-2.0
 metadata:
