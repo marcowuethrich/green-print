@@ -80,7 +80,7 @@ Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use t
 
 ## 🚀 Roadmap
 
-- [ ] Wire up Koin DI, Ktor Client, and KMP ViewModels in `shared`.
+- [x] Wire up Koin DI, Ktor Client, and KMP ViewModels in `shared`.
 - [ ] Set up OIDC authentication (quarkus-oidc) with Testcontainers integration tests.
 - [ ] Set up server-side persistence with Quarkus Hibernate Panache and Atlas schema migrations.
 - [ ] Build the interactive spatial blueprint UI.

@@ -14,14 +14,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import org.jetbrains.compose.resources.painterResource
-
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ch.wuethrich.greenprint.green_print.app.AppViewModel
 import green_print.composeapp.generated.resources.Res
 import green_print.composeapp.generated.resources.compose_multiplatform
+import org.jetbrains.compose.resources.painterResource
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 @Preview
 fun App() {
+    val viewModel = koinViewModel<AppViewModel>()
+    val greeting by viewModel.greeting.collectAsStateWithLifecycle()
+
     MaterialTheme {
         var showContent by remember { mutableStateOf(false) }
         Column(
@@ -35,7 +40,6 @@ fun App() {
                 Text("Click me!")
             }
             AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
