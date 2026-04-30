@@ -118,3 +118,34 @@ server/         → Panache entities + mappers to/from DTOs
 - `nextWateringDate = lastWateringDate + wateringIntervalDays`.
 - If `lastWateringDate` is null, the plant is considered "Never Watered" and potentially high priority.
 - Status is derived: `Healthy` (now < next), `Due` (now ≈ next), `Overdue` (now > next).
+
+---
+
+## ADR-008 — Spatial Data: 2D Coordinates
+
+**Decision:** Store plant positions as normalized 2D coordinates (`x: Float`, `y: Float`) relative to the room container.
+
+**Rationale:**
+- Normalized coordinates (0.0 to 1.0) ensure that the blueprint remains consistent across different screen sizes and aspect ratios.
+- Coordinates are stored in the server database alongside the `Plant` entity.
+
+---
+
+## ADR-009 — Archiving Strategy: Status & Metadata
+
+**Decision:** Transition plants to an "Archived" state using a status field rather than deletion. 
+
+**Rationale:**
+- Preserves the history of the user's "indoor jungle."
+- Allows for a read-only gallery of past plants.
+- Archiving requires specific metadata: `archiveDate` and `archiveReason` (Enum: `DIED`, `GIFTED`, `SOLD`).
+
+---
+
+## ADR-010 — Local Notifications for Engagement
+
+**Decision:** Use platform-specific local notification APIs to remind users to water plants.
+
+**Rationale:**
+- Avoids the cost and complexity of a central push notification server for basic reminders.
+- Scheduling logic lives in the platform source sets (`androidMain`, `iosMain`) but is triggered by shared logic when the "thirsty" zone is reached.

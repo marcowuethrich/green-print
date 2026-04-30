@@ -83,13 +83,15 @@ Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use t
 - [x] Wire up Koin DI, Ktor Client, and KMP ViewModels in `shared`.
 - [x] Set up OIDC authentication (quarkus-oidc) with integration tests.
 - [x] Set up server-side persistence with Quarkus Hibernate Panache and Atlas schema migrations.
-- [ ] **Phase 1: Inventory Fundamentals**
+- [ ] **Phase 1: Inventory & Health**
     - [ ] Single living space management (Rooms: Create, Rename, Delete).
     - [ ] Plant CRUD (Species, Pot size, Soil type).
-    - [ ] Manual watering tracking and due date calculation.
-- [ ] **Phase 2: Visual Experience**
-    - [ ] Interactive spatial blueprint UI.
-    - [ ] Drag-and-drop plant placement.
+    - [ ] Archive System (Reason: Died, Gifted, Sold; Read-only gallery).
+    - [ ] Watering Barometer logic & hydration degradation.
+- [ ] **Phase 2: Spatial Experience & Engagement**
+    - [ ] Interactive 2D Spatial Blueprint UI.
+    - [ ] Drag-and-drop plant placement (Save/Load coordinates).
+    - [ ] Local Notifications for "thirsty" zone alerts.
 - [ ] **Phase 3: Intelligence**
     - [ ] AI auto-generation using LLM vision models for automatic plant care profiles.
 

@@ -12,3 +12,5 @@ Architecture diagrams use [Mermaid](https://mermaid.js.org/) with the [C4 model]
 ## Features
 
 - [Plant & Space Inventory](features/inventory.md)
+- [Spatial Blueprint UI](features/spatial_blueprint.md)
+- [Local Notifications](features/notifications.md)

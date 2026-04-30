@@ -38,3 +38,26 @@ Keeping plants alive through scheduled hydration.
 - **Logic**: 
     - `next_due = last_event_timestamp + (watering_interval * 24h)`.
 - **UI State**: Plants should be sorted by "Urgency" (Overdue > Due > Healthy).
+
+## 4. Watering Barometer
+Visual hydration status at a glance.
+
+### User Stories
+- As a user, I want to see a visual barometer that shows how "thirsty" my plant is.
+- As a user, I want the barometer to decrease automatically as time passes since the last watering.
+
+### Technical Notes
+- **Calculation**: `percentage = (next_due - now) / watering_interval`.
+- **UI**: Color shift from Blue (Full) to Red (Thirsty/Overdue).
+
+## 5. Archive System
+Handling the "end of life" for plants.
+
+### User Stories
+- As a user, I want to move a plant to the "Archive" when it dies or is given away.
+- As a user, I want to record why the plant was archived.
+- As a user, I want to browse my archived plants in a read-only gallery.
+
+### Technical Notes
+- **Required Fields**: `Reason` (Died, Gifted, Sold), `ArchiveDate`.
+- **State**: Archived plants are excluded from the "Active" Blueprint and Watering lists.
