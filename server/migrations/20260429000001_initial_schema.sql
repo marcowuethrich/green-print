@@ -1,6 +1,11 @@
-CREATE TABLE plants (
-    id      BIGSERIAL PRIMARY KEY,
-    name    VARCHAR(255) NOT NULL,
-    species VARCHAR(255),
-    notes   TEXT
+CREATE TABLE spaces (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE rooms (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    space_id BIGINT NOT NULL,
+    CONSTRAINT fk_rooms_spaces FOREIGN KEY (space_id) REFERENCES spaces (id) ON DELETE CASCADE
 );
