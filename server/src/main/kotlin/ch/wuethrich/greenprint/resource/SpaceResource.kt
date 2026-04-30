@@ -33,7 +33,7 @@ class SpaceResource {
 
     @GET
     fun getSpaces(): List<Space> {
-        return SpaceEntity.find("userId", getUserId()).list<SpaceEntity>().map { it.toDto() }
+        return SpaceEntity.find("userId", getUserId()).list().map { it.toDto() }
     }
 
     @GET
