@@ -1,3 +1,11 @@
+buildscript {
+    dependencies {
+        // Inject JAXB globally before ANY plugins are loaded to support AGP on modern JDKs
+        classpath("javax.xml.bind:jaxb-api:2.3.1")
+        classpath("com.sun.xml.bind:jaxb-impl:2.3.3")
+    }
+}
+
 plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
