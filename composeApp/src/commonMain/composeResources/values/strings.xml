@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">GreenPrint</string>
+    <string name="click_me">Click me!</string>
+    <string name="compose_greeting">Compose: %s</string>
+</resources>

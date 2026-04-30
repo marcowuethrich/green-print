@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.quarkus.oidc)
     implementation(libs.quarkus.hibernate.orm.panache.kotlin)
     implementation(libs.quarkus.jdbc.postgresql)
+    implementation(projects.shared)
 
     testImplementation(libs.quarkus.junit5)
     testImplementation(libs.kotlinx.coroutines.test)

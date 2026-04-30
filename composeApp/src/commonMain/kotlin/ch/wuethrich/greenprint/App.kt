@@ -16,9 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.wuethrich.greenprint.app.AppViewModel
+import greenprint.composeapp.generated.resources.*
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.compose_multiplatform
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -36,8 +38,11 @@ fun App() {
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
+            Button(onClick = { 
+                showContent = !showContent 
+                if (showContent) viewModel.updateGreeting()
+            }) {
+                Text(stringResource(Res.string.click_me))
             }
             AnimatedVisibility(showContent) {
                 Column(
@@ -45,7 +50,7 @@ fun App() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
+                    Text(stringResource(Res.string.compose_greeting, greeting))
                 }
             }
         }

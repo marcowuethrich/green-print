@@ -19,7 +19,7 @@ class GreetingResourceTest {
     @TestSecurity(user = "alice", roles = ["user"])
     fun `authenticated request returns greeting`() = runTest {
         val response = greetingResource.hello()
-        assertEquals("Hello from Quarkus and Kotlin Coroutines!", response)
+        assertEquals("Hello from Quarkus and Kotlin Coroutines!", response.message)
     }
 
     @Test
