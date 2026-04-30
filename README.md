@@ -82,7 +82,7 @@ Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use t
 
 - [x] Wire up Koin DI, Ktor Client, and KMP ViewModels in `shared`.
 - [x] Set up OIDC authentication (quarkus-oidc) with integration tests.
-- [ ] Set up server-side persistence with Quarkus Hibernate Panache and Atlas schema migrations.
+- [x] Set up server-side persistence with Quarkus Hibernate Panache and Atlas schema migrations.
 - [ ] Build the interactive spatial blueprint UI.
 - [ ] Add AI auto-generation using LLM vision models for automatic plant care profiles.
 

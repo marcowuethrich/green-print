@@ -1,6 +1,13 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.kotlinAllOpen)
     alias(libs.plugins.quarkus)
+}
+
+allOpen {
+    annotation("jakarta.persistence.Entity")
+    annotation("jakarta.persistence.MappedSuperclass")
+    annotation("jakarta.persistence.Embeddable")
 }
 
 dependencies {
@@ -10,6 +17,8 @@ dependencies {
     implementation(libs.quarkus.arc)
     implementation(libs.quarkus.kotlin)
     implementation(libs.quarkus.oidc)
+    implementation(libs.quarkus.hibernate.orm.panache.kotlin)
+    implementation(libs.quarkus.jdbc.postgresql)
 
     testImplementation(libs.quarkus.junit5)
     testImplementation(libs.kotlinx.coroutines.test)

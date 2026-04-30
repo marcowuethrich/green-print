@@ -63,6 +63,8 @@ quarkus-kotlin = { module = "io.quarkus:quarkus-kotlin", version.ref = "quarkus"
 quarkus-oidc = { module = "io.quarkus:quarkus-oidc", version.ref = "quarkus" }
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5", version.ref = "quarkus" }
 quarkus-test-security-oidc = { module = "io.quarkus:quarkus-test-security-oidc" }
+quarkus-hibernate-orm-panache-kotlin = { module = "io.quarkus:quarkus-hibernate-orm-panache-kotlin" }
+quarkus-jdbc-postgresql = { module = "io.quarkus:quarkus-jdbc-postgresql" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -73,4 +75,5 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlinAllOpen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }
