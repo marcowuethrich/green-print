@@ -8,3 +8,7 @@ Architecture diagrams use [Mermaid](https://mermaid.js.org/) with the [C4 model]
 |---|---|
 | [Architecture Overview](architecture/overview.md) | C4 Container diagram — system structure and technology |
 | [Architecture Decision Records](architecture/decisions.md) | Key decisions made before feature implementation (auth, state, DI, networking, sharing) |
+
+## Features
+
+- [Plant & Space Inventory](features/inventory.md)

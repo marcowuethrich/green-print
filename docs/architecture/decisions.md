@@ -96,3 +96,25 @@ server/         → Panache entities + mappers to/from DTOs
 - Platform-specific system APIs (notifications, camera, file system) → `expect`/`actual` in the relevant source set.
 - UI composables → `composeApp/commonMain` (Compose Multiplatform is also cross-platform).
 - No Android-only libraries are allowed in `shared`.
+
+---
+
+## ADR-007 — Inventory Domain Model: Spaces, Rooms, and Plants
+
+**Decision:** Organize the inventory into a hierarchy: `Space` → `Room` → `Plant`. Watering is tracked via a `WateringEvent` log.
+
+**Rationale:**
+- Reflects how users naturally organize plants at home.
+- Allows for future expansion into multiple spaces (e.g., "Home" vs. "Office").
+- Decouples watering history from the current plant state for better analytics.
+
+**Model Definitions (shared/ DTOs):**
+- `Space`: ID, Name, List of Rooms.
+- `Room`: ID, Name, List of Plants.
+- `Plant`: ID, Name, Species, PotSize, SoilType, WateringIntervalDays, LastWateredDate (computed or explicitly stored).
+- `WateringEvent`: ID, PlantID, Timestamp.
+
+**Watering Logic:**
+- `nextWateringDate = lastWateringDate + wateringIntervalDays`.
+- If `lastWateringDate` is null, the plant is considered "Never Watered" and potentially high priority.
+- Status is derived: `Healthy` (now < next), `Due` (now ≈ next), `Overdue` (now > next).
