@@ -149,3 +149,14 @@ server/         → Panache entities + mappers to/from DTOs
 **Rationale:**
 - Avoids the cost and complexity of a central push notification server for basic reminders.
 - Scheduling logic lives in the platform source sets (`androidMain`, `iosMain`) but is triggered by shared logic when the "thirsty" zone is reached.
+
+---
+
+## ADR-011 — Auth Readiness: Interface-Driven
+
+**Decision:** Use a `NoOpAuthRepository` and a Ktor `Auth` plugin interceptor to make the system "auth-ready" without requiring a real OIDC provider during initial development.
+
+**Rationale:**
+- Decouples feature development from authentication infrastructure.
+- All HTTP calls automatically include a (currently mock) Bearer token.
+- Switching to real OIDC only requires replacing `NoOpAuthRepository` with a real implementation in the Koin `networkModule`.

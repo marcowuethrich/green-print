@@ -92,8 +92,9 @@ Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use t
     - [ ] Interactive 2D Spatial Blueprint UI.
     - [ ] Drag-and-drop plant placement (Save/Load coordinates).
     - [ ] Local Notifications for "thirsty" zone alerts.
-- [ ] **Phase 3: Intelligence**
+- [ ] **Phase 3: Intelligence & Security**
     - [ ] AI auto-generation using LLM vision models for automatic plant care profiles.
+    - [ ] Real OIDC/OAuth 2.0 Integration (replacing No-Op Auth).
 
 ## 🤝 Contributing & License
 This is primarily a personal portfolio project. Licensed under the [MIT License](LICENSE).
