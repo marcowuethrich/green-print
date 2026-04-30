@@ -6,6 +6,8 @@ import ch.wuethrich.greenprint.model.CreateRoomRequest
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.UpdateRoomRequest
 import io.quarkus.security.Authenticated
+import io.quarkus.security.identity.SecurityIdentity
+import jakarta.inject.Inject
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
@@ -23,11 +25,18 @@ import jakarta.ws.rs.core.Response
 @Authenticated
 class RoomResource {
 
+    @Inject
+    lateinit var identity: SecurityIdentity
+
+    private fun getUserId(): String = identity.principal?.name ?: "mock_user"
+
     @POST
     @Path("/spaces/{spaceId}/rooms")
     @Transactional
     fun createRoom(@PathParam("spaceId") spaceId: Long, request: CreateRoomRequest): Response {
         val space = SpaceEntity.findById(spaceId) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        if (space.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
+        
         val room = RoomEntity().apply {
             name = request.name
             this.space = space
@@ -41,6 +50,8 @@ class RoomResource {
     @Transactional
     fun updateRoom(@PathParam("id") id: Long, request: UpdateRoomRequest): Response {
         val room = RoomEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        if (room.space.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
+        
         room.name = request.name
         return Response.ok(room.toDto()).build()
     }
@@ -50,6 +61,8 @@ class RoomResource {
     @Transactional
     fun deleteRoom(@PathParam("id") id: Long): Response {
         val room = RoomEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        if (room.space.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
+        
         room.delete()
         return Response.noContent().build()
     }

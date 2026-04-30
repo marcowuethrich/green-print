@@ -6,6 +6,8 @@ import ch.wuethrich.greenprint.model.UpdateSpaceRequest
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.Space
 import io.quarkus.security.Authenticated
+import io.quarkus.security.identity.SecurityIdentity
+import jakarta.inject.Inject
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
@@ -24,9 +26,22 @@ import jakarta.ws.rs.core.Response
 @Authenticated
 class SpaceResource {
 
+    @Inject
+    lateinit var identity: SecurityIdentity
+
+    private fun getUserId(): String = identity.principal?.name ?: "mock_user"
+
     @GET
     fun getSpaces(): List<Space> {
-        return SpaceEntity.listAll().map { it.toDto() }
+        return SpaceEntity.find("userId", getUserId()).list<SpaceEntity>().map { it.toDto() }
+    }
+
+    @GET
+    @Path("/{id}")
+    fun getSpace(@PathParam("id") id: Long): Response {
+        val entity = SpaceEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        if (entity.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
+        return Response.ok(entity.toDto()).build()
     }
 
     @POST
@@ -34,6 +49,7 @@ class SpaceResource {
     fun createSpace(request: CreateSpaceRequest): Space {
         val entity = SpaceEntity().apply {
             name = request.name
+            userId = getUserId()
         }
         entity.persist()
         return entity.toDto()
@@ -44,6 +60,7 @@ class SpaceResource {
     @Transactional
     fun updateSpace(@PathParam("id") id: Long, request: UpdateSpaceRequest): Response {
         val entity = SpaceEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        if (entity.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
         entity.name = request.name
         return Response.ok(entity.toDto()).build()
     }
@@ -53,6 +70,7 @@ class SpaceResource {
     @Transactional
     fun deleteSpace(@PathParam("id") id: Long): Response {
         val entity = SpaceEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        if (entity.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
         entity.delete()
         return Response.noContent().build()
     }

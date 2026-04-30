@@ -11,6 +11,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "spaces")
 class SpaceEntity : PanacheEntity() {
+    lateinit var userId: String
     lateinit var name: String
 
     @OneToMany(mappedBy = "space", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
