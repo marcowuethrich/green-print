@@ -5,10 +5,9 @@ import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.model.CreateRoomRequest
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.UpdateRoomRequest
-import io.quarkus.hibernate.reactive.panache.common.WithTransaction
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
-import io.smallrye.mutiny.Uni
+import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
@@ -33,62 +32,58 @@ class RoomResource {
 
     @POST
     @Path("/spaces/{spaceId}/rooms")
-    @WithTransaction
-    fun createRoom(
+    suspend fun createRoom(
         @PathParam("spaceId") spaceId: Long,
         request: CreateRoomRequest
-    ): Uni<Response> = SpaceEntity.findById(spaceId).chain { space ->
-        when {
-            space == null -> Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build())
-            space.userId != getUserId() -> Uni.createFrom().item(Response.status(Response.Status.FORBIDDEN).build())
-            else -> {
-                val room = RoomEntity().apply {
-                    name = request.name
-                    this.space = space
-                }
-                room.persist<RoomEntity>().map {
-                    Response.status(Response.Status.CREATED).entity(it.toDto()).build()
-                }
-            }
+    ): Response = withTx {
+        val space = SpaceEntity.findById(spaceId).awaitSuspending() 
+            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+            
+        if (space.userId != getUserId()) {
+            return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
+        
+        val room = RoomEntity().apply {
+            name = request.name
+            this.space = space
+        }
+        room.persist<RoomEntity>().awaitSuspending()
+        Response.status(Response.Status.CREATED).entity(room.toDto()).build()
     }
 
     @PUT
     @Path("/spaces/{spaceId}/rooms/{id}")
-    @WithTransaction
-    fun updateRoom(
+    suspend fun updateRoom(
         @PathParam("spaceId") spaceId: Long,
         @PathParam("id") id: Long,
         request: UpdateRoomRequest
-    ): Uni<Response> = RoomEntity.findById(id).chain { room ->
-        when {
-            room == null -> Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build())
-            room.space.userId != getUserId() -> Uni.createFrom()
-                .item(Response.status(Response.Status.FORBIDDEN).build())
-
-            else -> {
-                room.name = request.name
-                Uni.createFrom().item(Response.ok(room.toDto()).build())
-            }
+    ): Response = withTx {
+        val room = RoomEntity.findById(id).awaitSuspending() 
+            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+            
+        if (room.space.userId != getUserId()) {
+            return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
+        
+        room.name = request.name
+        Response.ok(room.toDto()).build()
     }
 
     @DELETE
     @Path("/spaces/{spaceId}/rooms/{id}")
-    @WithTransaction
-    fun deleteRoom(
+    suspend fun deleteRoom(
         @PathParam("spaceId") spaceId: Long,
         @PathParam("id") id: Long
-    ): Uni<Response> = RoomEntity.findById(id).chain { room ->
-        when {
-            room == null -> Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build())
-            room.space.userId != getUserId() -> Uni.createFrom()
-                .item(Response.status(Response.Status.FORBIDDEN).build())
-
-            else -> {
-                RoomEntity.delete("id = ?1", id).replaceWith(Response.noContent().build())
-            }
+    ): Response = withTx {
+        val room = RoomEntity.findById(id).awaitSuspending() 
+            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+            
+        if (room.space.userId != getUserId()) {
+            return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
+        
+        RoomEntity.deleteById(id).awaitSuspending()
+        Response.noContent().build()
     }
 
     private fun RoomEntity.toDto() = Room(
