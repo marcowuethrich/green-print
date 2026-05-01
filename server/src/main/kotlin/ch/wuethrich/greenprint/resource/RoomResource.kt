@@ -36,13 +36,13 @@ class RoomResource {
         @PathParam("spaceId") spaceId: Long,
         request: CreateRoomRequest
     ): Response = withTx {
-        val space = SpaceEntity.findById(spaceId).awaitSuspending() 
+        val space = SpaceEntity.findById(spaceId).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-            
+
         if (space.userId != getUserId()) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
-        
+
         val room = RoomEntity().apply {
             name = request.name
             this.space = space
@@ -52,37 +52,35 @@ class RoomResource {
     }
 
     @PUT
-    @Path("/spaces/{spaceId}/rooms/{id}")
+    @Path("/rooms/{id}")
     suspend fun updateRoom(
-        @PathParam("spaceId") spaceId: Long,
         @PathParam("id") id: Long,
         request: UpdateRoomRequest
     ): Response = withTx {
-        val room = RoomEntity.findById(id).awaitSuspending() 
+        val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-            
+
         if (room.space.userId != getUserId()) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
-        
+
         room.name = request.name
         Response.ok(room.toDto()).build()
     }
 
     @DELETE
-    @Path("/spaces/{spaceId}/rooms/{id}")
+    @Path("/rooms/{id}")
     suspend fun deleteRoom(
-        @PathParam("spaceId") spaceId: Long,
         @PathParam("id") id: Long
     ): Response = withTx {
-        val room = RoomEntity.findById(id).awaitSuspending() 
+        val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-            
+
         if (room.space.userId != getUserId()) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
-        
-        RoomEntity.deleteById(id).awaitSuspending()
+
+        room.deleteDirectly()
         Response.noContent().build()
     }
 

@@ -48,12 +48,12 @@ class RoomResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body("""{"name": "Balcony"}""")
-            .`when`().put("/spaces/$spaceId/rooms/$roomId")
+            .`when`().put("/rooms/$roomId")
             .then().statusCode(200)
             .body("name", equalTo("Balcony"))
 
         given()
-            .`when`().delete("/spaces/$spaceId/rooms/$roomId")
+            .`when`().delete("/rooms/$roomId")
             .then().statusCode(204)
     }
 }
