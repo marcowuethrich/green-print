@@ -1,57 +1,63 @@
 package ch.wuethrich.greenprint.resource
 
-import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.RoomEntity
-import ch.wuethrich.greenprint.model.CreateSpaceRequest
-import ch.wuethrich.greenprint.model.UpdateSpaceRequest
+import ch.wuethrich.greenprint.entity.SpaceEntity
+import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
-import jakarta.inject.Inject
-import jakarta.transaction.Transactional
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import io.quarkus.test.vertx.RunOnVertxContext
+import io.quarkus.test.vertx.UniAsserter
+import io.restassured.RestAssured.given
+import io.restassured.http.ContentType
+import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 @QuarkusTest
 class SpaceResourceTest {
 
-    @Inject
-    lateinit var spaceResource: SpaceResource
-
     @BeforeEach
-    @Transactional
-    fun setup() {
-        RoomEntity.deleteAll()
-        SpaceEntity.deleteAll()
+    @RunOnVertxContext
+    fun setup(asserter: UniAsserter) {
+        asserter.execute {
+            Panache.withTransaction {
+                RoomEntity.deleteAll().flatMap { SpaceEntity.deleteAll() }
+            }
+        }
     }
 
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
     fun `test space lifecycle`() {
-        // 1. Create Space
-        val space = spaceResource.createSpace(CreateSpaceRequest("My Apartment"))
-        assertNotNull(space.id)
-        assertEquals("My Apartment", space.name)
+        val spaceId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "My Apartment"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .body("name", equalTo("My Apartment"))
+            .extract().path<Int>("id")
 
-        // 2. Update Space
-        val updateResponse = spaceResource.updateSpace(space.id, UpdateSpaceRequest("Our Villa"))
-        assertEquals(200, updateResponse.status)
-        val updatedSpace = updateResponse.entity as ch.wuethrich.greenprint.model.Space
-        assertEquals("Our Villa", updatedSpace.name)
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Our Villa"}""")
+            .`when`().put("/spaces/$spaceId")
+            .then().statusCode(200)
+            .body("name", equalTo("Our Villa"))
 
-        // 3. Get Spaces
-        val spaces = spaceResource.getSpaces()
-        assertEquals(1, spaces.size)
-        assertEquals("Our Villa", spaces[0].name)
+        given()
+            .`when`().get("/spaces")
+            .then().statusCode(200)
+            .body("$", hasSize<Any>(1))
+            .body("[0].name", equalTo("Our Villa"))
 
-        // 4. Delete Space
-        val deleteSpaceResponse = spaceResource.deleteSpace(space.id)
-        assertEquals(204, deleteSpaceResponse.status)
+        given()
+            .`when`().delete("/spaces/$spaceId")
+            .then().statusCode(204)
 
-        // Verify emptiness
-        val spacesAfterDelete = spaceResource.getSpaces()
-        assertTrue(spacesAfterDelete.isEmpty())
+        given()
+            .`when`().get("/spaces")
+            .then().statusCode(200)
+            .body("$", hasSize<Any>(0))
     }
 }

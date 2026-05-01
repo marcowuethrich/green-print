@@ -1,7 +1,7 @@
 package ch.wuethrich.greenprint.entity
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanion
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
+import io.quarkus.hibernate.reactive.panache.kotlin.PanacheCompanion
+import io.quarkus.hibernate.reactive.panache.kotlin.PanacheEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
@@ -13,7 +13,7 @@ import jakarta.persistence.Table
 class RoomEntity : PanacheEntity() {
     lateinit var name: String
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "space_id")
     lateinit var space: SpaceEntity
 

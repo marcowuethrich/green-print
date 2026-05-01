@@ -1,55 +1,59 @@
 package ch.wuethrich.greenprint.resource
 
-import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.RoomEntity
-import ch.wuethrich.greenprint.model.CreateRoomRequest
-import ch.wuethrich.greenprint.model.CreateSpaceRequest
-import ch.wuethrich.greenprint.model.UpdateRoomRequest
+import ch.wuethrich.greenprint.entity.SpaceEntity
+import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
-import jakarta.inject.Inject
-import jakarta.transaction.Transactional
-import org.junit.jupiter.api.Assertions.assertEquals
+import io.quarkus.test.vertx.RunOnVertxContext
+import io.quarkus.test.vertx.UniAsserter
+import io.restassured.RestAssured.given
+import io.restassured.http.ContentType
+import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 @QuarkusTest
 class RoomResourceTest {
 
-    @Inject
-    lateinit var spaceResource: SpaceResource
-
-    @Inject
-    lateinit var roomResource: RoomResource
-
     @BeforeEach
-    @Transactional
-    fun setup() {
-        RoomEntity.deleteAll()
-        SpaceEntity.deleteAll()
+    @RunOnVertxContext
+    fun setup(asserter: UniAsserter) {
+        asserter.execute {
+            Panache.withTransaction {
+                RoomEntity.deleteAll().flatMap { SpaceEntity.deleteAll() }
+            }
+        }
     }
 
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
     fun `test room lifecycle`() {
-        // 1. Create Space first
-        val space = spaceResource.createSpace(CreateSpaceRequest("My Apartment"))
+        val spaceId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "My Apartment"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .extract().path<Int>("id")
 
-        // 2. Create Room
-        val roomResponse = roomResource.createRoom(space.id, CreateRoomRequest("Living Room"))
-        assertEquals(201, roomResponse.status)
-        val createdRoom = roomResponse.entity as ch.wuethrich.greenprint.model.Room
-        assertEquals("Living Room", createdRoom.name)
-        assertEquals(space.id, createdRoom.spaceId)
+        val roomId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Living Room"}""")
+            .`when`().post("/spaces/$spaceId/rooms")
+            .then().statusCode(201)
+            .body("name", equalTo("Living Room"))
+            .body("spaceId", equalTo(spaceId))
+            .extract().path<Int>("id")
 
-        // 3. Update Room
-        val updateResponse = roomResource.updateRoom(createdRoom.id, UpdateRoomRequest("Balcony"))
-        assertEquals(200, updateResponse.status)
-        val updatedRoom = updateResponse.entity as ch.wuethrich.greenprint.model.Room
-        assertEquals("Balcony", updatedRoom.name)
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Balcony"}""")
+            .`when`().put("/spaces/$spaceId/rooms/$roomId")
+            .then().statusCode(200)
+            .body("name", equalTo("Balcony"))
 
-        // 4. Delete Room
-        val deleteRoomResponse = roomResource.deleteRoom(createdRoom.id)
-        assertEquals(204, deleteRoomResponse.status)
+        given()
+            .`when`().delete("/spaces/$spaceId/rooms/$roomId")
+            .then().statusCode(204)
     }
 }

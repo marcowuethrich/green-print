@@ -64,8 +64,11 @@ quarkus-kotlin = { module = "io.quarkus:quarkus-kotlin", version.ref = "quarkus"
 quarkus-oidc = { module = "io.quarkus:quarkus-oidc", version.ref = "quarkus" }
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5", version.ref = "quarkus" }
 quarkus-test-security-oidc = { module = "io.quarkus:quarkus-test-security-oidc" }
-quarkus-hibernate-orm-panache-kotlin = { module = "io.quarkus:quarkus-hibernate-orm-panache-kotlin" }
-quarkus-jdbc-postgresql = { module = "io.quarkus:quarkus-jdbc-postgresql" }
+quarkus-test-vertx = { module = "io.quarkus:quarkus-test-vertx" }
+rest-assured = { module = "io.rest-assured:rest-assured" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
+quarkus-hibernate-reactive-panache-kotlin = { module = "io.quarkus:quarkus-hibernate-reactive-panache-kotlin" }
+quarkus-reactive-pg-client = { module = "io.quarkus:quarkus-reactive-pg-client" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

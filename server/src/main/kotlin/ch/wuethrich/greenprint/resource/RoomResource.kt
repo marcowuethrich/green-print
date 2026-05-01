@@ -5,10 +5,11 @@ import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.model.CreateRoomRequest
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.UpdateRoomRequest
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
+import io.smallrye.mutiny.Uni
 import jakarta.inject.Inject
-import jakarta.transaction.Transactional
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.POST
@@ -32,39 +33,62 @@ class RoomResource {
 
     @POST
     @Path("/spaces/{spaceId}/rooms")
-    @Transactional
-    fun createRoom(@PathParam("spaceId") spaceId: Long, request: CreateRoomRequest): Response {
-        val space = SpaceEntity.findById(spaceId) ?: return Response.status(Response.Status.NOT_FOUND).build()
-        if (space.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
-        
-        val room = RoomEntity().apply {
-            name = request.name
-            this.space = space
+    @WithTransaction
+    fun createRoom(
+        @PathParam("spaceId") spaceId: Long,
+        request: CreateRoomRequest
+    ): Uni<Response> = SpaceEntity.findById(spaceId).chain { space ->
+        when {
+            space == null -> Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build())
+            space.userId != getUserId() -> Uni.createFrom().item(Response.status(Response.Status.FORBIDDEN).build())
+            else -> {
+                val room = RoomEntity().apply {
+                    name = request.name
+                    this.space = space
+                }
+                room.persist<RoomEntity>().map {
+                    Response.status(Response.Status.CREATED).entity(it.toDto()).build()
+                }
+            }
         }
-        room.persist()
-        return Response.status(Response.Status.CREATED).entity(room.toDto()).build()
     }
 
     @PUT
-    @Path("/rooms/{id}")
-    @Transactional
-    fun updateRoom(@PathParam("id") id: Long, request: UpdateRoomRequest): Response {
-        val room = RoomEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
-        if (room.space.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
-        
-        room.name = request.name
-        return Response.ok(room.toDto()).build()
+    @Path("/spaces/{spaceId}/rooms/{id}")
+    @WithTransaction
+    fun updateRoom(
+        @PathParam("spaceId") spaceId: Long,
+        @PathParam("id") id: Long,
+        request: UpdateRoomRequest
+    ): Uni<Response> = RoomEntity.findById(id).chain { room ->
+        when {
+            room == null -> Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build())
+            room.space.userId != getUserId() -> Uni.createFrom()
+                .item(Response.status(Response.Status.FORBIDDEN).build())
+
+            else -> {
+                room.name = request.name
+                Uni.createFrom().item(Response.ok(room.toDto()).build())
+            }
+        }
     }
 
     @DELETE
-    @Path("/rooms/{id}")
-    @Transactional
-    fun deleteRoom(@PathParam("id") id: Long): Response {
-        val room = RoomEntity.findById(id) ?: return Response.status(Response.Status.NOT_FOUND).build()
-        if (room.space.userId != getUserId()) return Response.status(Response.Status.FORBIDDEN).build()
-        
-        room.delete()
-        return Response.noContent().build()
+    @Path("/spaces/{spaceId}/rooms/{id}")
+    @WithTransaction
+    fun deleteRoom(
+        @PathParam("spaceId") spaceId: Long,
+        @PathParam("id") id: Long
+    ): Uni<Response> = RoomEntity.findById(id).chain { room ->
+        when {
+            room == null -> Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).build())
+            room.space.userId != getUserId() -> Uni.createFrom()
+                .item(Response.status(Response.Status.FORBIDDEN).build())
+
+            else -> {
+                RoomEntity.delete("id = ?1", id).replaceWith(Response.noContent().build())
+            }
+        }
     }
 
     private fun RoomEntity.toDto() = Room(
