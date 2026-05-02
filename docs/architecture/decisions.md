@@ -185,3 +185,25 @@ Adopt the Android/KMP community naming pattern for resource strings in `composeA
 - Prevents duplicate strings for generic actions.
 - Developers must prioritize using `common_` strings where applicable.
 - Simplifies navigation within the resource files as features are grouped alphabetically by prefix.
+
+---
+
+## ADR-013 — Keyboard Navigation and Focus Management
+
+**Decision:**
+The application must be fully navigable and operable via keyboard. Every screen and modal must define a logical default focus point upon entry.
+
+**Implementation Rules:**
+- **Autofocus**: Every new screen or dialog must automatically request focus on the most logical initial action or input.
+- **TextInput**: Name/Detail entry fields must be focused and, if renaming, have all text selected by default.
+- **Destructive Actions**: In confirmation dialogs (e.g., Delete), the **Cancel** button must be focused by default to prevent accidental data loss.
+- **Form Submission**: Text fields should support `ImeAction.Done` or `ImeAction.Next` to allow submission/navigation without leaving the keyboard.
+
+**Rationale:**
+- Improves accessibility for users with motor impairments.
+- Enhances productivity for power users on desktop (JVM/Web) and mobile with external keyboards.
+- Aligns with "Senior Designer" standards for modern, professional software.
+
+**Consequences:**
+- Developers must use `FocusRequester` and `LaunchedEffect` in every new UI component.
+- Testing must include keyboard-only verification (Tab, Enter, Arrow keys).

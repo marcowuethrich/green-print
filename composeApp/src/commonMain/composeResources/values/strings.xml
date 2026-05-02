@@ -13,6 +13,7 @@
     <string name="error_generic">Something went wrong.</string>
 
     <!-- Space screen -->
+    <string name="space_leave_action">Leave Space</string>
     <string name="space_create_title">Your Living Space</string>
     <string name="space_create_description">Create a living space to start organising your plants.</string>
     <string name="space_name_hint">Space name</string>

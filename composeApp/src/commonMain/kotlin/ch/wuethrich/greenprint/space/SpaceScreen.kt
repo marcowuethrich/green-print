@@ -1,5 +1,9 @@
 package ch.wuethrich.greenprint.space
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,25 +13,47 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
 import greenprint.composeapp.generated.resources.common_delete
@@ -35,126 +61,163 @@ import greenprint.composeapp.generated.resources.common_rename
 import greenprint.composeapp.generated.resources.common_retry
 import greenprint.composeapp.generated.resources.common_save
 import greenprint.composeapp.generated.resources.error_generic
+import greenprint.composeapp.generated.resources.ic_leaf
+import greenprint.composeapp.generated.resources.ic_more_vert
 import greenprint.composeapp.generated.resources.space_create_button
 import greenprint.composeapp.generated.resources.space_create_description
 import greenprint.composeapp.generated.resources.space_create_title
 import greenprint.composeapp.generated.resources.space_delete_dialog_message
 import greenprint.composeapp.generated.resources.space_delete_dialog_title
+import greenprint.composeapp.generated.resources.space_leave_action
 import greenprint.composeapp.generated.resources.space_name_hint
 import greenprint.composeapp.generated.resources.space_rename_dialog_title
-import greenprint.composeapp.generated.resources.space_section_label
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpaceScreen(modifier: Modifier = Modifier) {
+fun SpaceScreen(
+    onLeave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val viewModel: SpaceViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var visible by remember { mutableStateOf(false) }
+    val mainFocusRequester = remember { FocusRequester() }
 
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 600.dp)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            when (val state = uiState) {
-                SpaceUiState.Loading -> SpaceLoadingContent()
-                SpaceUiState.Empty -> SpaceEmptyContent(onCreate = viewModel::createSpace)
-                is SpaceUiState.HasSpace -> SpaceDetailContent(
-                    state = state,
-                    onRename = { viewModel.updateSpace(state.space.id, it) },
-                    onDelete = { viewModel.deleteSpace(state.space.id) },
-                )
-                is SpaceUiState.Error -> SpaceErrorContent(onRetry = viewModel::retry)
-            }
-        }
+    LaunchedEffect(Unit) {
+        visible = true
+        mainFocusRequester.requestFocus()
     }
-}
 
-@Composable
-private fun SpaceLoadingContent() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+    val title = when (val state = uiState) {
+        is SpaceUiState.HasSpace -> state.space.name
+        else -> ""
     }
-}
 
-@Composable
-private fun SpaceEmptyContent(onCreate: (String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = stringResource(Res.string.space_create_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            text = stringResource(Res.string.space_create_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text(stringResource(Res.string.space_name_hint)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(
-            onClick = { onCreate(name) },
-            enabled = name.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(Res.string.space_create_button))
-        }
-    }
-}
-
-@Composable
-private fun SpaceDetailContent(
-    state: SpaceUiState.HasSpace,
-    onRename: (String) -> Unit,
-    onDelete: () -> Unit,
-) {
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = stringResource(Res.string.space_section_label),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = state.space.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { showRenameDialog = true }) {
-                        Text(stringResource(Res.string.common_rename))
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { 
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                actions = {
+                    if (uiState is SpaceUiState.HasSpace) {
+                        SpaceSettingsMenu(
+                            onRename = { viewModel.updateSpace((uiState as SpaceUiState.HasSpace).space.id, it) },
+                            onDelete = {
+                                viewModel.deleteSpace((uiState as SpaceUiState.HasSpace).space.id)
+                                onLeave()
+                            },
+                            onLeave = onLeave,
+                            spaceName = (uiState as SpaceUiState.HasSpace).space.name
+                        )
                     }
-                    OutlinedButton(onClick = { showDeleteDialog = true }) {
-                        Text(stringResource(Res.string.common_delete))
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
+        },
+        containerColor = Color.Transparent,
+        modifier = modifier.background(Brush.verticalGradient(DesignSystem.BackgroundGradient))
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier.padding(innerPadding).fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { 20 })
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 600.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    when (val state = uiState) {
+                        SpaceUiState.Loading -> SpaceLoadingContent()
+                        SpaceUiState.Empty -> SpaceEmptyContent(onCreate = viewModel::createSpace)
+                        is SpaceUiState.HasSpace -> SpaceDetailContent(
+                            state = state,
+                            onRename = { viewModel.updateSpace(state.space.id, it) },
+                            onDelete = {
+                                viewModel.deleteSpace(state.space.id)
+                                onLeave()
+                            },
+                            onLeave = onLeave,
+                            focusRequester = mainFocusRequester
+                        )
+                        is SpaceUiState.Error -> SpaceErrorContent(onRetry = viewModel::retry)
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SpaceSettingsMenu(
+    onRename: (String) -> Unit,
+    onDelete: () -> Unit,
+    onLeave: () -> Unit,
+    spaceName: String
+) {
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { showMenu = true }) {
+            Icon(
+                painter = painterResource(Res.drawable.ic_more_vert),
+                contentDescription = "Settings",
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.space_leave_action)) },
+                onClick = {
+                    showMenu = false
+                    onLeave()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.common_rename)) },
+                onClick = {
+                    showMenu = false
+                    showRenameDialog = true
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.common_delete)) },
+                onClick = {
+                    showMenu = false
+                    showDeleteDialog = true
+                },
+                colors = androidx.compose.material3.MenuDefaults.itemColors(
+                    textColor = MaterialTheme.colorScheme.error
+                )
+            )
+        }
+    }
 
     if (showRenameDialog) {
         RenameSpaceDialog(
-            currentName = state.space.name,
+            currentName = spaceName,
             onConfirm = { newName ->
                 onRename(newName)
                 showRenameDialog = false
@@ -175,6 +238,91 @@ private fun SpaceDetailContent(
 }
 
 @Composable
+private fun SpaceLoadingContent() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(strokeWidth = 3.dp, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+private fun SpaceEmptyContent(onCreate: (String) -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "No space selected",
+            style = MaterialTheme.typography.titleLarge
+        )
+    }
+}
+
+@Composable
+private fun SpaceDetailContent(
+    state: SpaceUiState.HasSpace,
+    onRename: (String) -> Unit,
+    onDelete: () -> Unit,
+    onLeave: () -> Unit,
+    focusRequester: FocusRequester
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(32.dp)
+    ) {
+        // Empty state for rooms
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(vertical = 48.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(Res.drawable.ic_leaf),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "No Rooms Yet",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "Divide your space into rooms to organize your plants.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+
+            Button(
+                onClick = { /* TODO: Create room */ },
+                shape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier
+                    .height(56.dp)
+                    .fillMaxWidth(0.8f)
+                    .focusRequester(focusRequester)
+            ) {
+                Text(
+                    text = "Add Your First Room",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun SpaceErrorContent(onRetry: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -185,7 +333,7 @@ private fun SpaceErrorContent(onRetry: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.error,
         )
-        Button(onClick = onRetry) {
+        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
             Text(stringResource(Res.string.common_retry))
         }
     }
@@ -197,31 +345,57 @@ private fun RenameSpaceDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var name by remember(currentName) { mutableStateOf(currentName) }
+    var textFieldValue by remember(currentName) {
+        mutableStateOf(
+            TextFieldValue(
+                text = currentName,
+                selection = TextRange(0, currentName.length)
+            )
+        )
+    }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.space_rename_dialog_title)) },
+        shape = MaterialTheme.shapes.large,
+        title = { Text(stringResource(Res.string.space_rename_dialog_title), fontWeight = FontWeight.Bold) },
         text = {
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
+                value = textFieldValue,
+                onValueChange = { textFieldValue = it },
                 label = { Text(stringResource(Res.string.space_name_hint)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (textFieldValue.text.isNotBlank() && textFieldValue.text != currentName) {
+                            onConfirm(textFieldValue.text)
+                        }
+                    }
+                )
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = { onConfirm(name) },
-                enabled = name.isNotBlank() && name != currentName,
+            Button(
+                onClick = { onConfirm(textFieldValue.text) },
+                enabled = textFieldValue.text.isNotBlank() && textFieldValue.text != currentName,
+                shape = MaterialTheme.shapes.medium
             ) {
-                Text(stringResource(Res.string.common_save))
+                Text(stringResource(Res.string.common_save), fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.common_cancel))
+                Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
@@ -232,21 +406,32 @@ private fun DeleteSpaceDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val cancelFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        cancelFocusRequester.requestFocus()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.space_delete_dialog_title)) },
+        shape = MaterialTheme.shapes.large,
+        title = { Text(stringResource(Res.string.space_delete_dialog_title), fontWeight = FontWeight.Bold) },
         text = { Text(stringResource(Res.string.space_delete_dialog_message)) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = stringResource(Res.string.common_delete),
-                    color = MaterialTheme.colorScheme.error,
-                )
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(stringResource(Res.string.common_delete), fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.common_cancel))
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.focusRequester(cancelFocusRequester)
+            ) {
+                Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
     )
