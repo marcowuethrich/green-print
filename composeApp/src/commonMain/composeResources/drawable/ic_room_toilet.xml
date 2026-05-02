@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- Toilet silhouette -->
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M7,18h10v-3c0,-2.2 -1.8,-4 -4,-4h-2c-2.2,0 -4,1.8 -4,4v3zM14,13a1,1 0,0 1,1 1a1,1 0,0 1, -1,1a1,1 0,0 1, -1,-1a1,1 0,0 1,1 -1z"/>
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M19,7h-1v11h-12v-11h-1v-4h14v4zM17,5h-10v2h10v-2z"/>
+</vector>

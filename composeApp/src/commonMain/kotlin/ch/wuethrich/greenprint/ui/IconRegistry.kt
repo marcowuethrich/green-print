@@ -7,14 +7,16 @@ import greenprint.composeapp.generated.resources.ic_leaf
 import greenprint.composeapp.generated.resources.ic_space_apartment
 import greenprint.composeapp.generated.resources.ic_space_house
 import greenprint.composeapp.generated.resources.ic_space_office
-import greenprint.composeapp.generated.resources.ic_room_bed
+import greenprint.composeapp.generated.resources.ic_room_bedroom
+import greenprint.composeapp.generated.resources.ic_room_corridor
 import greenprint.composeapp.generated.resources.ic_room_kitchen
-import greenprint.composeapp.generated.resources.ic_room_sofa
+import greenprint.composeapp.generated.resources.ic_room_living
+import greenprint.composeapp.generated.resources.ic_room_toilet
 import org.jetbrains.compose.resources.painterResource
 
 object IconRegistry {
     val spaceIcons = listOf("house_24", "apartment_24", "office_24")
-    val roomIcons = listOf("sofa_24", "bed_24", "kitchen_24")
+    val roomIcons = listOf("living_24", "bedroom_24", "kitchen_24", "toilet_24", "corridor_24")
 
     @Composable
     fun getPainter(iconId: String?): Painter {
@@ -22,9 +24,11 @@ object IconRegistry {
             "house_24" -> painterResource(Res.drawable.ic_space_house)
             "apartment_24" -> painterResource(Res.drawable.ic_space_apartment)
             "office_24" -> painterResource(Res.drawable.ic_space_office)
-            "sofa_24" -> painterResource(Res.drawable.ic_room_sofa)
-            "bed_24" -> painterResource(Res.drawable.ic_room_bed)
+            "living_24" -> painterResource(Res.drawable.ic_room_living)
+            "bedroom_24" -> painterResource(Res.drawable.ic_room_bedroom)
             "kitchen_24" -> painterResource(Res.drawable.ic_room_kitchen)
+            "toilet_24" -> painterResource(Res.drawable.ic_room_toilet)
+            "corridor_24" -> painterResource(Res.drawable.ic_room_corridor)
             else -> painterResource(Res.drawable.ic_leaf) // Default fallback
         }
     }

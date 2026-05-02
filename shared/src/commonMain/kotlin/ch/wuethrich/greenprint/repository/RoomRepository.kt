@@ -11,8 +11,8 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 
 interface RoomRepository {
-    suspend fun createRoom(spaceId: String, name: String): Room
-    suspend fun updateRoom(id: String, name: String): Room
+    suspend fun createRoom(spaceId: String, name: String, icon: String? = null): Room
+    suspend fun updateRoom(id: String, name: String, icon: String? = null): Room
     suspend fun deleteRoom(id: String)
 }
 
@@ -20,15 +20,15 @@ class RoomRepositoryImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String
 ) : RoomRepository {
-    override suspend fun createRoom(spaceId: String, name: String): Room {
+    override suspend fun createRoom(spaceId: String, name: String, icon: String?): Room {
         return httpClient.post("$baseUrl/spaces/$spaceId/rooms") {
-            setBody(CreateRoomRequest(name))
+            setBody(CreateRoomRequest(name, icon))
         }.body()
     }
 
-    override suspend fun updateRoom(id: String, name: String): Room {
+    override suspend fun updateRoom(id: String, name: String, icon: String?): Room {
         return httpClient.put("$baseUrl/rooms/$id") {
-            setBody(UpdateRoomRequest(name))
+            setBody(UpdateRoomRequest(name, icon))
         }.body()
     }
 

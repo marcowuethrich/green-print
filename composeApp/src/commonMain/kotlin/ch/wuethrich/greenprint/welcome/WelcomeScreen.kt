@@ -53,6 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.wuethrich.greenprint.model.Space
+import ch.wuethrich.greenprint.space.SpaceUiEffect
 import ch.wuethrich.greenprint.space.SpaceUiState
 import ch.wuethrich.greenprint.space.SpaceViewModel
 import ch.wuethrich.greenprint.ui.IconPicker
@@ -84,9 +85,24 @@ fun WelcomeScreen(
     var visible by remember { mutableStateOf(false) }
     var isCreating by remember { mutableStateOf(false) }
     val welcomeFocusRequester = remember { FocusRequester() }
+    
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         visible = true
+    }
+
+    // Handle one-time effects (like validation errors)
+    LaunchedEffect(Unit) {
+        viewModel.uiEffect.collect { effect ->
+            when (effect) {
+                is SpaceUiEffect.ValidationError -> {
+                    validationError = effect.message
+                    isCreating = false
+                    showCreateModal = true
+                }
+            }
+        }
     }
 
     // Handle auto-focus when visible and not in modal
@@ -99,8 +115,9 @@ fun WelcomeScreen(
     // Auto-navigate after successful creation
     LaunchedEffect(uiState) {
         val state = uiState
-        if (isCreating && state is SpaceUiState.HasSpace) {
+        if (isCreating && state is SpaceUiState.HasSpace && validationError == null) {
             isCreating = false
+            showCreateModal = false
             onEnterSpace(state.space)
         }
     }
@@ -150,7 +167,10 @@ fun WelcomeScreen(
                     when (val state = uiState) {
                         SpaceUiState.Loading -> WelcomeLoadingContent()
                         SpaceUiState.Empty -> WelcomeEmptyContent(
-                            onCreateClick = { showCreateModal = true },
+                            onCreateClick = { 
+                                validationError = null
+                                showCreateModal = true 
+                            },
                             focusRequester = welcomeFocusRequester
                         )
                         is SpaceUiState.HasSpace -> WelcomePopulatedContent(
@@ -167,12 +187,20 @@ fun WelcomeScreen(
 
     if (showCreateModal) {
         CreateSpaceModal(
+            error = validationError,
             onConfirm = { name, icon ->
+                validationError = null
                 isCreating = true
                 viewModel.createSpace(name, icon)
-                showCreateModal = false
+                // Modal stays open until success or error
             },
-            onDismiss = { showCreateModal = false }
+            onDismiss = { 
+                showCreateModal = false
+                validationError = null
+            },
+            onClearError = {
+                validationError = null
+            }
         )
     }
 }
@@ -325,8 +353,10 @@ private fun WelcomeErrorContent(onRetry: () -> Unit) {
 
 @Composable
 private fun CreateSpaceModal(
+    error: String?,
     onConfirm: (String, String?) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onClearError: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var selectedIcon by remember { mutableStateOf<String?>(null) }
@@ -351,8 +381,13 @@ private fun CreateSpaceModal(
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { 
+                        name = it
+                        onClearError()
+                    },
                     label = { Text(stringResource(Res.string.space_name_hint)) },
+                    isError = error != null,
+                    supportingText = error?.let { { Text(it) } },
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier
@@ -373,7 +408,10 @@ private fun CreateSpaceModal(
                     label = "Choose an icon (optional)",
                     availableIcons = IconRegistry.spaceIcons,
                     selectedIcon = selectedIcon,
-                    onIconSelected = { selectedIcon = if (it == selectedIcon) null else it }
+                    onIconSelected = { 
+                        selectedIcon = if (it == selectedIcon) null else it 
+                        onClearError()
+                    }
                 )
             }
         },

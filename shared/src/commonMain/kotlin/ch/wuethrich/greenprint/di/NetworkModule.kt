@@ -27,6 +27,7 @@ val networkModule = module {
     single {
         val authRepository = get<AuthRepository>()
         HttpClient {
+            expectSuccess = true
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }
