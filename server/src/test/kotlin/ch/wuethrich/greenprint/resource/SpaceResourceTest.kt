@@ -35,11 +35,7 @@ class SpaceResourceTest {
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
     fun `duplicate space name for same user returns 409`() {
-        given()
-            .contentType(ContentType.JSON)
-            .body("""{"name": "My Apartment"}""")
-            .`when`().post("/spaces")
-            .then().statusCode(200)
+        createSpace("My Apartment")
 
         given()
             .contentType(ContentType.JSON)
@@ -51,7 +47,7 @@ class SpaceResourceTest {
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
     fun `space name uniqueness is scoped to user - alice side`() {
-        givenSpace(forUser = "bob", named = "Unique-Flat")
+        givenSpaceInDb(forUser = "bob", named = "Unique-Flat")
 
         given()
             .contentType(ContentType.JSON)
@@ -63,7 +59,7 @@ class SpaceResourceTest {
     @Test
     @TestSecurity(user = "bob", roles = ["user"])
     fun `space name uniqueness is scoped to user - bob side`() {
-        givenSpace(forUser = "alice", named = "Unique-Flat")
+        givenSpaceInDb(forUser = "alice", named = "Unique-Flat")
 
         given()
             .contentType(ContentType.JSON)
@@ -72,30 +68,10 @@ class SpaceResourceTest {
             .then().statusCode(200)
     }
 
-    @Suppress("SameParameterValue")
-    private fun givenSpace(forUser: String, named: String) {
-        sf.withTransaction { _ ->
-            val user = UserEntity().apply { externalId = forUser }
-            user.persist<UserEntity>().flatMap { persistedUser ->
-                val space = SpaceEntity().apply {
-                    name = named
-                    this.user = persistedUser
-                }
-                space.persist<SpaceEntity>()
-            }
-        }.await().indefinitely()
-    }
-
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
     fun `test space lifecycle`() {
-        val spaceId = given()
-            .contentType(ContentType.JSON)
-            .body("""{"name": "My Apartment"}""")
-            .`when`().post("/spaces")
-            .then().statusCode(200)
-            .body("name", equalTo("My Apartment"))
-            .extract().path<String>("id")
+        val spaceId = createSpace("My Apartment")
 
         given()
             .contentType(ContentType.JSON)
@@ -147,12 +123,7 @@ class SpaceResourceTest {
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
     fun `updating space without icon sets default`() {
-        val spaceId = given()
-            .contentType(ContentType.JSON)
-            .body("""{"name": "Initial Space", "icon": "house_24"}""")
-            .`when`().post("/spaces")
-            .then().statusCode(200)
-            .extract().path<String>("id")
+        val spaceId = createSpace("Initial Space", icon = "house_24")
 
         given()
             .contentType(ContentType.JSON)
@@ -160,5 +131,33 @@ class SpaceResourceTest {
             .`when`().put("/spaces/$spaceId")
             .then().statusCode(200)
             .body("icon", equalTo("default_space"))
+    }
+
+    private fun createSpace(name: String, icon: String? = null): String {
+        val body = if (icon != null) {
+            """{"name": "$name", "icon": "$icon"}"""
+        } else {
+            """{"name": "$name"}"""
+        }
+        return given()
+            .contentType(ContentType.JSON)
+            .body(body)
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .extract().path("id")
+    }
+
+    @Suppress("SameParameterValue")
+    private fun givenSpaceInDb(forUser: String, named: String) {
+        sf.withTransaction { _ ->
+            val user = UserEntity().apply { externalId = forUser }
+            user.persist<UserEntity>().flatMap { persistedUser ->
+                val space = SpaceEntity().apply {
+                    name = named
+                    this.user = persistedUser
+                }
+                space.persist<SpaceEntity>()
+            }
+        }.await().indefinitely()
     }
 }
