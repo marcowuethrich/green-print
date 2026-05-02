@@ -1,23 +1,28 @@
 <resources>
+    <!-- App -->
     <string name="app_name">GreenPrint</string>
 
-    <!-- Space screen -->
-    <string name="create_space_title">Your Living Space</string>
-    <string name="create_space_description">Create a living space to start organising your plants.</string>
-    <string name="space_name_label">Space name</string>
-    <string name="create_space_button">Create living space</string>
+    <!-- Common actions -->
+    <string name="common_save">Save</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_rename">Rename</string>
+    <string name="common_delete">Delete</string>
 
-    <string name="your_living_space">Your living space</string>
-    <string name="rename">Rename</string>
-    <string name="delete">Delete</string>
-
-    <string name="rename_dialog_title">Rename space</string>
-    <string name="save">Save</string>
-    <string name="cancel">Cancel</string>
-
-    <string name="delete_dialog_title">Delete space?</string>
-    <string name="delete_dialog_message">This will permanently delete your living space and all rooms inside it.</string>
-
+    <!-- Common errors -->
     <string name="error_generic">Something went wrong.</string>
-    <string name="retry">Retry</string>
+
+    <!-- Space screen -->
+    <string name="space_create_title">Your Living Space</string>
+    <string name="space_create_description">Create a living space to start organising your plants.</string>
+    <string name="space_name_hint">Space name</string>
+    <string name="space_create_button">Create living space</string>
+    <string name="space_section_label">Your living space</string>
+
+    <!-- Space — rename dialog -->
+    <string name="space_rename_dialog_title">Rename space</string>
+
+    <!-- Space — delete dialog -->
+    <string name="space_delete_dialog_title">Delete space?</string>
+    <string name="space_delete_dialog_message">This will permanently delete your living space and all rooms inside it.</string>
 </resources>

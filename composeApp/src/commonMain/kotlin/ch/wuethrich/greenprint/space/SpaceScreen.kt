@@ -29,20 +29,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.cancel
-import greenprint.composeapp.generated.resources.create_space_button
-import greenprint.composeapp.generated.resources.create_space_description
-import greenprint.composeapp.generated.resources.create_space_title
-import greenprint.composeapp.generated.resources.delete
-import greenprint.composeapp.generated.resources.delete_dialog_message
-import greenprint.composeapp.generated.resources.delete_dialog_title
+import greenprint.composeapp.generated.resources.common_cancel
+import greenprint.composeapp.generated.resources.common_delete
+import greenprint.composeapp.generated.resources.common_rename
+import greenprint.composeapp.generated.resources.common_retry
+import greenprint.composeapp.generated.resources.common_save
 import greenprint.composeapp.generated.resources.error_generic
-import greenprint.composeapp.generated.resources.rename
-import greenprint.composeapp.generated.resources.rename_dialog_title
-import greenprint.composeapp.generated.resources.retry
-import greenprint.composeapp.generated.resources.save
-import greenprint.composeapp.generated.resources.space_name_label
-import greenprint.composeapp.generated.resources.your_living_space
+import greenprint.composeapp.generated.resources.space_create_button
+import greenprint.composeapp.generated.resources.space_create_description
+import greenprint.composeapp.generated.resources.space_create_title
+import greenprint.composeapp.generated.resources.space_delete_dialog_message
+import greenprint.composeapp.generated.resources.space_delete_dialog_title
+import greenprint.composeapp.generated.resources.space_name_hint
+import greenprint.composeapp.generated.resources.space_rename_dialog_title
+import greenprint.composeapp.generated.resources.space_section_label
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -92,11 +92,11 @@ private fun SpaceEmptyContent(onCreate: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = stringResource(Res.string.create_space_title),
+            text = stringResource(Res.string.space_create_title),
             style = MaterialTheme.typography.headlineSmall,
         )
         Text(
-            text = stringResource(Res.string.create_space_description),
+            text = stringResource(Res.string.space_create_description),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -104,7 +104,7 @@ private fun SpaceEmptyContent(onCreate: (String) -> Unit) {
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text(stringResource(Res.string.space_name_label)) },
+            label = { Text(stringResource(Res.string.space_name_hint)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -113,7 +113,7 @@ private fun SpaceEmptyContent(onCreate: (String) -> Unit) {
             enabled = name.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(stringResource(Res.string.create_space_button))
+            Text(stringResource(Res.string.space_create_button))
         }
     }
 }
@@ -129,7 +129,7 @@ private fun SpaceDetailContent(
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
-            text = stringResource(Res.string.your_living_space),
+            text = stringResource(Res.string.space_section_label),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -142,10 +142,10 @@ private fun SpaceDetailContent(
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { showRenameDialog = true }) {
-                        Text(stringResource(Res.string.rename))
+                        Text(stringResource(Res.string.common_rename))
                     }
                     OutlinedButton(onClick = { showDeleteDialog = true }) {
-                        Text(stringResource(Res.string.delete))
+                        Text(stringResource(Res.string.common_delete))
                     }
                 }
             }
@@ -186,7 +186,7 @@ private fun SpaceErrorContent(onRetry: () -> Unit) {
             color = MaterialTheme.colorScheme.error,
         )
         Button(onClick = onRetry) {
-            Text(stringResource(Res.string.retry))
+            Text(stringResource(Res.string.common_retry))
         }
     }
 }
@@ -201,12 +201,12 @@ private fun RenameSpaceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.rename_dialog_title)) },
+        title = { Text(stringResource(Res.string.space_rename_dialog_title)) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(stringResource(Res.string.space_name_label)) },
+                label = { Text(stringResource(Res.string.space_name_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -216,12 +216,12 @@ private fun RenameSpaceDialog(
                 onClick = { onConfirm(name) },
                 enabled = name.isNotBlank() && name != currentName,
             ) {
-                Text(stringResource(Res.string.save))
+                Text(stringResource(Res.string.common_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.cancel))
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
@@ -234,19 +234,19 @@ private fun DeleteSpaceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.delete_dialog_title)) },
-        text = { Text(stringResource(Res.string.delete_dialog_message)) },
+        title = { Text(stringResource(Res.string.space_delete_dialog_title)) },
+        text = { Text(stringResource(Res.string.space_delete_dialog_message)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(
-                    text = stringResource(Res.string.delete),
+                    text = stringResource(Res.string.common_delete),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.cancel))
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
