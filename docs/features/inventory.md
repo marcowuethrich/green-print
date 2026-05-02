@@ -2,19 +2,45 @@
 
 This document defines the requirements and technical considerations for the first phase of the GreenPrint inventory system.
 
-## 1. Living Space Management
-Users can define where their plants live. Initially, we support a single "Living Space" per account.
+## 1. Welcome Screen
+The initial entry point of the application.
+
+### User Stories
+- As a user, I want to see a welcoming screen with the name of the app (**GreenPrint**) when I open it.
+- As a user, I want to see my existing living space(s) listed clearly on this screen.
+- As a user, I want a clear call-to-action to "Create your first living space" if I don't have one yet.
+
+### Flow & Restrictions (Frontend)
+- **First Impression**: The screen serves as the launchpad for the user's plant management journey.
+- **Empty State**: If no living space exists, a prominent "Create your first living space" button is shown.
+- **Populated State**: If a living space exists, it is displayed in a list. The "Create" button is hidden/disabled due to the single-space restriction.
+
+## 2. Living Space Management
+Users can define where their plants live. 
 
 ### User Stories
 - As a user, I want to create a profile for my living space (e.g., "My Apartment").
+- As a user, I want to rename my living space if I move or change its name.
+- As a user, I want to enter a living space from the Welcome Screen to manage its rooms and plants.
+- As a user, I want to leave a living space to return to the Welcome Screen.
 - As a user, I want to add rooms to my space (e.g., "Living Room", "Balcony").
 - As a user, I want to rename or delete rooms if my layout changes.
 
+### Flow & Restrictions (Frontend)
+- **Single Space Limit**: Initially, the user can only create **one** living space. This restriction is enforced in the frontend (the "Create" button is hidden/disabled on the Welcome Screen if a space exists).
+- **Auto-Entry**: After creating a living space, the user is automatically "entered" into that space and navigated to the list of rooms within it.
+- **Navigation**: 
+    - Leaving a space returns the user to the Welcome Screen (list of existing living spaces).
+    - Since only one space is currently allowed, the user will see their single space but cannot create a second one.
+- **Settings Menu**: The "Leave" and "Delete" actions for a living space must be tucked away behind a **Settings** menu within the space view to prevent accidental triggers.
+
 ### Technical Notes
 - **Entities**: `Space` (UUID, Name), `Room` (UUID, Name).
-- **Validation**: Room names must be unique within a space. Different users may reuse the same room names in their own spaces.
+- **Validation**: 
+    - **Space Names**: Must be unique for the **same user**. Different users can reuse space names from other users.
+    - **Room Names**: Must be unique within a space. Different users may reuse the same room names in their own spaces.
 
-## 2. Plant CRUD
+## 3. Plant CRUD
 The core of the app is managing individual plants.
 
 ### User Stories
@@ -26,7 +52,7 @@ The core of the app is managing individual plants.
 - **Entity**: `Plant` (UUID, Name, Species, PotSize, SoilType, RoomID).
 - **Pot Size & Soil**: Initially manual text entry; will move to categorized enums/entities in a later phase.
 
-## 3. Basic Watering Tracking
+## 4. Basic Watering Tracking
 Keeping plants alive through scheduled hydration.
 
 ### User Stories
@@ -39,7 +65,7 @@ Keeping plants alive through scheduled hydration.
     - `next_due = last_event_timestamp + (watering_interval * 24h)`.
 - **UI State**: Plants should be sorted by "Urgency" (Overdue > Due > Healthy).
 
-## 4. Watering Barometer
+## 5. Watering Barometer
 Visual hydration status at a glance.
 
 ### User Stories
@@ -50,7 +76,7 @@ Visual hydration status at a glance.
 - **Calculation**: `percentage = (next_due - now) / watering_interval`.
 - **UI**: Color shift from Blue (Full) to Red (Thirsty/Overdue).
 
-## 5. Archive System
+## 6. Archive System
 Handling the "end of life" for plants.
 
 ### User Stories
