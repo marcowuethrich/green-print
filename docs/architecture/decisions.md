@@ -160,3 +160,28 @@ server/         → Panache entities + mappers to/from DTOs
 - Decouples feature development from authentication infrastructure.
 - All HTTP calls automatically include a (currently mock) Bearer token.
 - Switching to real OIDC only requires replacing `NoOpAuthRepository` with a real implementation in the Koin `networkModule`.
+
+---
+
+## ADR-012 — Resource String Naming Convention
+
+**Decision:**
+Adopt the Android/KMP community naming pattern for resource strings in `composeApp/src/commonMain/composeResources/values/strings.xml`.
+
+| Pattern | Used for | Example |
+| :--- | :--- | :--- |
+| `app_*` | App-level strings | `app_name` |
+| `common_*` | Actions reused across screens | `common_save`, `common_cancel` |
+| `error_*` | Error messages | `error_generic`, `error_network` |
+| `<feature>_*` | Feature-specific, feature name first | `space_create_title`, `space_name_hint` |
+| `<feature>_<dialog>_*` | Dialog strings scoped to feature | `space_rename_dialog_title` |
+
+**Rationale:**
+- Aligns with established industry standards in the Android and KMP ecosystems.
+- Grouping by feature (feature-first naming) improves discoverability and IDE autocomplete performance.
+- The `common_` prefix is the key payoff as the app grows — when a "Rooms" screen needs a Save button, it reuses `common_save` instead of adding a duplicate `save_room` string.
+
+**Consequences:**
+- Prevents duplicate strings for generic actions.
+- Developers must prioritize using `common_` strings where applicable.
+- Simplifies navigation within the resource files as features are grouped alphabetically by prefix.
