@@ -35,14 +35,10 @@ class RoomResource {
         @PathParam("spaceId") spaceId: UUID,
         request: CreateRoomRequest
     ): Response = withTx {
-        val user = userService.currentUser()
         val space = SpaceEntity.findById(spaceId).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (space.user.id != user.id) {
-            return@withTx Response.status(Response.Status.FORBIDDEN).build()
-        }
-
+        requireOwner(space.user, userService.currentUser())
         val room = RoomEntity().apply {
             name = request.name
             this.space = space
@@ -57,14 +53,10 @@ class RoomResource {
         @PathParam("id") id: UUID,
         request: UpdateRoomRequest
     ): Response = withTx {
-        val user = userService.currentUser()
         val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (room.space.user.id != user.id) {
-            return@withTx Response.status(Response.Status.FORBIDDEN).build()
-        }
-
+        requireOwner(room.space.user, userService.currentUser())
         room.name = request.name
         Response.ok(room.toDto()).build()
     }
@@ -74,14 +66,10 @@ class RoomResource {
     suspend fun deleteRoom(
         @PathParam("id") id: UUID
     ): Response = withTx {
-        val user = userService.currentUser()
         val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (room.space.user.id != user.id) {
-            return@withTx Response.status(Response.Status.FORBIDDEN).build()
-        }
-
+        requireOwner(room.space.user, userService.currentUser())
         room.deleteDirectly(room.id)
         Response.noContent().build()
     }

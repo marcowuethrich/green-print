@@ -1,9 +1,12 @@
 package ch.wuethrich.greenprint.resource
 
+import ch.wuethrich.greenprint.entity.UserEntity
 import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheEntityBase
 import io.smallrye.mutiny.coroutines.asUni
 import io.smallrye.mutiny.coroutines.awaitSuspending
+import jakarta.ws.rs.WebApplicationException
+import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +20,10 @@ suspend fun <T> withTx(block: suspend () -> T): T {
             block()
         }.asUni()
     }.awaitSuspending()
+}
+
+fun requireOwner(entityUser: UserEntity, currentUser: UserEntity) {
+    if (entityUser.id != currentUser.id) throw WebApplicationException(Response.Status.FORBIDDEN)
 }
 
 /**

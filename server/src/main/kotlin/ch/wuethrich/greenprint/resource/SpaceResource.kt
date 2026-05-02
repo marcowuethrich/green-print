@@ -40,14 +40,10 @@ class SpaceResource {
     @GET
     @Path("/spaces/{id}")
     suspend fun getSpace(@PathParam("id") id: UUID): Response = withTx {
-        val user = userService.currentUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (entity.user.id != user.id) {
-            return@withTx Response.status(Response.Status.FORBIDDEN).build()
-        }
-
+        requireOwner(entity.user, userService.currentUser())
         Response.ok(entity.toDto()).build()
     }
 
@@ -65,14 +61,10 @@ class SpaceResource {
     @PUT
     @Path("/spaces/{id}")
     suspend fun updateSpace(@PathParam("id") id: UUID, request: UpdateSpaceRequest): Response = withTx {
-        val user = userService.currentUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (entity.user.id != user.id) {
-            return@withTx Response.status(Response.Status.FORBIDDEN).build()
-        }
-
+        requireOwner(entity.user, userService.currentUser())
         entity.name = request.name
         Response.ok(entity.toDto()).build()
     }
@@ -80,14 +72,10 @@ class SpaceResource {
     @DELETE
     @Path("/spaces/{id}")
     suspend fun deleteSpace(@PathParam("id") id: UUID): Response = withTx {
-        val user = userService.currentUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (entity.user.id != user.id) {
-            return@withTx Response.status(Response.Status.FORBIDDEN).build()
-        }
-
+        requireOwner(entity.user, userService.currentUser())
         entity.delete().awaitSuspending()
         Response.noContent().build()
     }
