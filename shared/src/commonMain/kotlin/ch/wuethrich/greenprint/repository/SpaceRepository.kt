@@ -1,49 +1,60 @@
 package ch.wuethrich.greenprint.repository
 
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
+import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.model.UpdateSpaceRequest
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.delete
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.request.url
+import io.ktor.http.HttpMethod
 
 interface SpaceRepository {
-    suspend fun getSpaces(): List<Space>
-    suspend fun getSpace(id: String): Space
-    suspend fun createSpace(name: String, icon: String? = null): Space
-    suspend fun updateSpace(id: String, name: String, icon: String? = null): Space
-    suspend fun deleteSpace(id: String)
+    suspend fun getSpaces(): NetworkResult<List<Space>>
+    suspend fun getSpace(id: String): NetworkResult<Space>
+    suspend fun createSpace(name: String, icon: String? = null): NetworkResult<Space>
+    suspend fun updateSpace(id: String, name: String, icon: String? = null): NetworkResult<Space>
+    suspend fun deleteSpace(id: String): NetworkResult<Unit>
 }
 
 class SpaceRepositoryImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String
 ) : SpaceRepository {
-    override suspend fun getSpaces(): List<Space> {
-        return httpClient.get("$baseUrl/spaces").body()
+    override suspend fun getSpaces(): NetworkResult<List<Space>> {
+        return httpClient.safeRequest {
+            url("$baseUrl/spaces")
+            method = HttpMethod.Get
+        }
     }
 
-    override suspend fun getSpace(id: String): Space {
-        return httpClient.get("$baseUrl/spaces/$id").body()
+    override suspend fun getSpace(id: String): NetworkResult<Space> {
+        return httpClient.safeRequest {
+            url("$baseUrl/spaces/$id")
+            method = HttpMethod.Get
+        }
     }
 
-    override suspend fun createSpace(name: String, icon: String?): Space {
-        return httpClient.post("$baseUrl/spaces") {
+    override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> {
+        return httpClient.safeRequest {
+            url("$baseUrl/spaces")
+            method = HttpMethod.Post
             setBody(CreateSpaceRequest(name, icon))
-        }.body()
+        }
     }
 
-    override suspend fun updateSpace(id: String, name: String, icon: String?): Space {
-        return httpClient.put("$baseUrl/spaces/$id") {
+    override suspend fun updateSpace(id: String, name: String, icon: String?): NetworkResult<Space> {
+        return httpClient.safeRequest {
+            url("$baseUrl/spaces/$id")
+            method = HttpMethod.Put
             setBody(UpdateSpaceRequest(name, icon))
-        }.body()
+        }
     }
 
-    override suspend fun deleteSpace(id: String) {
-        httpClient.delete("$baseUrl/spaces/$id")
+    override suspend fun deleteSpace(id: String): NetworkResult<Unit> {
+        return httpClient.safeRequest {
+            url("$baseUrl/spaces/$id")
+            method = HttpMethod.Delete
+        }
     }
 }

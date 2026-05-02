@@ -2,12 +2,12 @@ package ch.wuethrich.greenprint.space
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ch.wuethrich.greenprint.model.NetworkError
+import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.repository.AuthRepository
 import ch.wuethrich.greenprint.repository.RoomRepository
 import ch.wuethrich.greenprint.repository.SpaceRepository
-import io.ktor.client.plugins.ResponseException
-import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,7 +30,6 @@ sealed interface SpaceUiEffect {
 class SpaceViewModel(
     private val spaceRepository: SpaceRepository,
     private val roomRepository: RoomRepository,
-    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SpaceUiState>(SpaceUiState.Loading)
@@ -41,7 +40,6 @@ class SpaceViewModel(
 
     init {
         viewModelScope.launch {
-            authRepository.login()
             loadSpace()
         }
     }
@@ -54,11 +52,9 @@ class SpaceViewModel(
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
-            try {
-                val space = spaceRepository.createSpace(trimmed, icon)
-                _uiState.value = SpaceUiState.HasSpace(space)
-            } catch (e: Throwable) {
-                handleFormError(e, "A space with this name already exists.", targetId = null)
+            when (val result = spaceRepository.createSpace(trimmed, icon)) {
+                is NetworkResult.Success -> _uiState.value = SpaceUiState.HasSpace(result.data)
+                is NetworkResult.Failure -> handleFormError(result.error, "A space with this name already exists.", targetId = null)
             }
         }
     }
@@ -67,11 +63,9 @@ class SpaceViewModel(
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
-            try {
-                val space = spaceRepository.updateSpace(id, trimmed, icon)
-                _uiState.value = SpaceUiState.HasSpace(space)
-            } catch (e: Throwable) {
-                handleFormError(e, "A space with this name already exists.", targetId = id)
+            when (val result = spaceRepository.updateSpace(id, trimmed, icon)) {
+                is NetworkResult.Success -> _uiState.value = SpaceUiState.HasSpace(result.data)
+                is NetworkResult.Failure -> handleFormError(result.error, "A space with this name already exists.", targetId = id)
             }
         }
     }
@@ -79,9 +73,10 @@ class SpaceViewModel(
     fun deleteSpace(id: String) {
         viewModelScope.launch {
             _uiState.value = SpaceUiState.Loading
-            runCatching { spaceRepository.deleteSpace(id) }
-                .onSuccess { _uiState.value = SpaceUiState.Empty }
-                .onFailure { _uiState.value = SpaceUiState.Error(it.message ?: "Unknown error") }
+            when (val result = spaceRepository.deleteSpace(id)) {
+                is NetworkResult.Success -> _uiState.value = SpaceUiState.Empty
+                is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toMessage())
+            }
         }
     }
 
@@ -89,11 +84,9 @@ class SpaceViewModel(
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
-            try {
-                roomRepository.createRoom(spaceId, trimmed, icon)
-                loadSpace(silent = true)
-            } catch (e: Throwable) {
-                handleFormError(e, "A room with this name already exists in this space.", targetId = "new_room")
+            when (val result = roomRepository.createRoom(spaceId, trimmed, icon)) {
+                is NetworkResult.Success -> loadSpace(silent = true)
+                is NetworkResult.Failure -> handleFormError(result.error, "A room with this name already exists in this space.", targetId = "new_room")
             }
         }
     }
@@ -102,50 +95,51 @@ class SpaceViewModel(
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
-            try {
-                roomRepository.updateRoom(id, trimmed, icon)
-                loadSpace(silent = true)
-            } catch (e: Throwable) {
-                handleFormError(e, "A room with this name already exists in this space.", targetId = id)
+            when (val result = roomRepository.updateRoom(id, trimmed, icon)) {
+                is NetworkResult.Success -> loadSpace(silent = true)
+                is NetworkResult.Failure -> handleFormError(result.error, "A room with this name already exists in this space.", targetId = id)
             }
         }
     }
 
     fun deleteRoom(id: String) {
         viewModelScope.launch {
-            runCatching { roomRepository.deleteRoom(id) }
-                .onSuccess { loadSpace(silent = true) }
-                .onFailure { _uiState.value = SpaceUiState.Error(it.message ?: "Unknown error") }
+            when (val result = roomRepository.deleteRoom(id)) {
+                is NetworkResult.Success -> loadSpace(silent = true)
+                is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toMessage())
+            }
         }
     }
 
-    private suspend fun handleFormError(e: Throwable, conflictMessage: String, targetId: String?) {
-        val isConflict = when (e) {
-            is ResponseException -> e.response.status == HttpStatusCode.Conflict
-            else -> e.message?.contains("409") == true
-        }
-
-        if (isConflict) {
+    private suspend fun handleFormError(error: NetworkError, conflictMessage: String, targetId: String?) {
+        if (error is NetworkError.Conflict) {
             _uiEffect.emit(SpaceUiEffect.ValidationError(conflictMessage, targetId))
         } else {
-            val message = e.message ?: "An unexpected error occurred."
-            val finalMessage = if (message.contains("Connect", ignoreCase = true) || message.contains("Timeout", ignoreCase = true)) {
-                "Network error: Please check your connection."
-            } else {
-                message
-            }
-            _uiEffect.emit(SpaceUiEffect.ValidationError(finalMessage, targetId))
+            _uiEffect.emit(SpaceUiEffect.ValidationError(error.toMessage(), targetId))
         }
     }
 
     private suspend fun loadSpace(silent: Boolean = false) {
         if (!silent) _uiState.value = SpaceUiState.Loading
-        runCatching { spaceRepository.getSpaces() }
-            .onSuccess { spaces ->
-                _uiState.value = spaces.firstOrNull()
+        when (val result = spaceRepository.getSpaces()) {
+            is NetworkResult.Success -> {
+                _uiState.value = result.data.firstOrNull()
                     ?.let { SpaceUiState.HasSpace(it) }
                     ?: SpaceUiState.Empty
             }
-            .onFailure { if (!silent) _uiState.value = SpaceUiState.Error(it.message ?: "Unknown error") }
+            is NetworkResult.Failure -> {
+                if (!silent) _uiState.value = SpaceUiState.Error(result.error.toMessage())
+            }
+        }
+    }
+
+    private fun NetworkError.toMessage(): String = when (this) {
+        NetworkError.Unauthorized -> "Please log in again."
+        NetworkError.Forbidden -> "You don't have permission to perform this action."
+        NetworkError.NotFound -> "The requested resource was not found."
+        NetworkError.Conflict -> "This item already exists."
+        NetworkError.ServerError -> "Server error: Please try again later."
+        NetworkError.Connectivity -> "Network error: Please check your connection."
+        is NetworkError.Unknown -> message ?: "An unexpected error occurred."
     }
 }

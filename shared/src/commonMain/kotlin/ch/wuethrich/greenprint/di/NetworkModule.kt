@@ -44,6 +44,14 @@ val networkModule = module {
                             BearerTokens(it, "")
                         }
                     }
+                    refreshTokens {
+                        // In a real app, we would call a refresh endpoint here.
+                        // For NoOp, we just ensure we have a token.
+                        authRepository.login()
+                        authRepository.getAccessToken()?.let {
+                            BearerTokens(it, "")
+                        }
+                    }
                 }
             }
         }

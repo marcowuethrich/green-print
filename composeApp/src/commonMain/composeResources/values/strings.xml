@@ -19,6 +19,11 @@
     <string name="space_name_hint">Space name</string>
     <string name="space_create_button">Create living space</string>
     <string name="space_section_label">Your living space</string>
+    <string name="space_no_selection">No space selected</string>
+    <string name="space_no_rooms_title">No Rooms Yet</string>
+    <string name="space_no_rooms_description">Divide your space into rooms to organize your plants.</string>
+    <string name="space_add_first_room">Add Your First Room</string>
+    <string name="space_rooms_section_title">Rooms</string>
 
     <!-- Space — rename dialog -->
     <string name="space_rename_dialog_title">Rename space</string>
@@ -26,4 +31,12 @@
     <!-- Space — delete dialog -->
     <string name="space_delete_dialog_title">Delete space?</string>
     <string name="space_delete_dialog_message">This will permanently delete your living space and all rooms inside it.</string>
+
+    <!-- Room management -->
+    <string name="room_add_dialog_title">Add Room</string>
+    <string name="room_name_hint">Room name</string>
+    <string name="room_icon_picker_label">Choose an icon (optional)</string>
+    <string name="room_rename_dialog_title">Rename Room</string>
+    <string name="room_delete_dialog_title">Delete room?</string>
+    <string name="room_delete_dialog_message">Are you sure you want to delete \'%s\'?</string>
 </resources>

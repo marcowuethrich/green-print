@@ -1,8 +1,12 @@
 package ch.wuethrich.greenprint.space
 
+import ch.wuethrich.greenprint.model.NetworkError
+import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Space
+import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.repository.AuthRepository
 import ch.wuethrich.greenprint.repository.SpaceRepository
+import ch.wuethrich.greenprint.repository.RoomRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +41,7 @@ class SpaceViewModelTest {
     fun `initial state is Loading then Empty when no spaces exist`() = runTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = emptyList()),
-            authRepository = FakeAuthRepository(),
+            roomRepository = FakeRoomRepository(),
         )
 
         assertEquals(SpaceUiState.Loading, viewModel.uiState.first())
@@ -50,7 +54,7 @@ class SpaceViewModelTest {
         val space = Space(id = "1", name = "My Home")
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = listOf(space)),
-            authRepository = FakeAuthRepository(),
+            roomRepository = FakeRoomRepository(),
         )
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -62,8 +66,8 @@ class SpaceViewModelTest {
     @Test
     fun `initial state becomes Error when loading fails`() = runTest {
         val viewModel = SpaceViewModel(
-            spaceRepository = FakeSpaceRepository(error = RuntimeException("Network error")),
-            authRepository = FakeAuthRepository(),
+            spaceRepository = FakeSpaceRepository(error = NetworkError.Connectivity),
+            roomRepository = FakeRoomRepository(),
         )
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -75,7 +79,7 @@ class SpaceViewModelTest {
         val created = Space(id = "2", name = "Garden Flat")
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = emptyList(), createResult = created),
-            authRepository = FakeAuthRepository(),
+            roomRepository = FakeRoomRepository(),
         )
         testDispatcher.scheduler.advanceUntilIdle()
         assertEquals(SpaceUiState.Empty, viewModel.uiState.value)
@@ -92,7 +96,7 @@ class SpaceViewModelTest {
     fun `createSpace with blank name does nothing`() = runTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = emptyList()),
-            authRepository = FakeAuthRepository(),
+            roomRepository = FakeRoomRepository(),
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -107,7 +111,7 @@ class SpaceViewModelTest {
         val space = Space(id = "3", name = "Studio")
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = listOf(space)),
-            authRepository = FakeAuthRepository(),
+            roomRepository = FakeRoomRepository(),
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -122,12 +126,15 @@ class SpaceViewModelTest {
         var shouldFail = true
         val space = Space(id = "4", name = "Loft")
         val repo = object : FakeSpaceRepository(spaces = listOf(space)) {
-            override suspend fun getSpaces(): List<Space> {
-                if (shouldFail) throw RuntimeException("temporary error")
+            override suspend fun getSpaces(): NetworkResult<List<Space>> {
+                if (shouldFail) return NetworkResult.Failure(NetworkError.ServerError)
                 return super.getSpaces()
             }
         }
-        val viewModel = SpaceViewModel(spaceRepository = repo, authRepository = FakeAuthRepository())
+        val viewModel = SpaceViewModel(
+            spaceRepository = repo,
+            roomRepository = FakeRoomRepository(),
+        )
         testDispatcher.scheduler.advanceUntilIdle()
         assertIs<SpaceUiState.Error>(viewModel.uiState.value)
 
@@ -143,24 +150,35 @@ class SpaceViewModelTest {
 
 private open class FakeSpaceRepository(
     private val spaces: List<Space> = emptyList(),
-    private val error: Throwable? = null,
+    private val error: NetworkError? = null,
     private val createResult: Space? = null,
 ) : SpaceRepository {
 
-    override suspend fun getSpaces(): List<Space> {
-        if (error != null) throw error
-        return spaces
+    override suspend fun getSpaces(): NetworkResult<List<Space>> {
+        if (error != null) return NetworkResult.Failure(error)
+        return NetworkResult.Success(spaces)
     }
 
-    override suspend fun getSpace(id: String): Space = spaces.first { it.id == id }
+    override suspend fun getSpace(id: String): NetworkResult<Space> = 
+        NetworkResult.Success(spaces.first { it.id == id })
 
-    override suspend fun createSpace(name: String): Space =
-        createResult ?: Space(id = "new", name = name)
+    override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> =
+        NetworkResult.Success(createResult ?: Space(id = "new", name = name, icon = icon))
 
-    override suspend fun updateSpace(id: String, name: String): Space =
-        spaces.first { it.id == id }.copy(name = name)
+    override suspend fun updateSpace(id: String, name: String, icon: String?): NetworkResult<Space> =
+        NetworkResult.Success(spaces.first { it.id == id }.copy(name = name, icon = icon))
 
-    override suspend fun deleteSpace(id: String) = Unit
+    override suspend fun deleteSpace(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
+}
+
+private class FakeRoomRepository : RoomRepository {
+    override suspend fun createRoom(spaceId: String, name: String, icon: String?): NetworkResult<Room> =
+        NetworkResult.Success(Room(id = "new_room", spaceId = spaceId, name = name, icon = icon))
+
+    override suspend fun updateRoom(id: String, name: String, icon: String?): NetworkResult<Room> =
+        NetworkResult.Success(Room(id = id, spaceId = "unknown", name = name, icon = icon))
+
+    override suspend fun deleteRoom(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
 }
 
 private class FakeAuthRepository : AuthRepository {
