@@ -8,6 +8,8 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import java.util.UUID
@@ -19,7 +21,10 @@ class SpaceEntity : PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
 
-    lateinit var userId: String
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "user_id")
+    lateinit var user: UserEntity
+
     lateinit var name: String
 
     @OneToMany(mappedBy = "space", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)

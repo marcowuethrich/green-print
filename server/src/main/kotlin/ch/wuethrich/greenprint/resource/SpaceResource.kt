@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.entity.SpaceEntity
+import ch.wuethrich.greenprint.entity.UserEntity
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
 import ch.wuethrich.greenprint.model.UpdateSpaceRequest
 import ch.wuethrich.greenprint.model.Room
@@ -30,21 +31,28 @@ class SpaceResource {
     @Inject
     lateinit var identity: SecurityIdentity
 
-    private fun getUserId(): String = identity.principal?.name ?: "mock_user"
+    private fun getExternalId(): String = identity.principal?.name ?: "mock_user"
+
+    private suspend fun getOrCreateUser(): UserEntity =
+        UserEntity.find("externalId", getExternalId()).firstResult().awaitSuspending()
+            ?: UserEntity().apply { externalId = getExternalId() }
+                .also { it.persist<UserEntity>().awaitSuspending() }
 
     @GET
     @Path("/spaces")
     suspend fun getSpaces(): List<Space> = withTx {
-        SpaceEntity.find("userId", getUserId()).list().awaitSuspending().map { it.toDto() }
+        val user = getOrCreateUser()
+        SpaceEntity.find("user", user).list().awaitSuspending().map { it.toDto() }
     }
 
     @GET
     @Path("/spaces/{id}")
     suspend fun getSpace(@PathParam("id") id: UUID): Response = withTx {
+        val user = getOrCreateUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (entity.userId != getUserId()) {
+        if (entity.user.id != user.id) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
 
@@ -54,9 +62,10 @@ class SpaceResource {
     @POST
     @Path("/spaces")
     suspend fun createSpace(request: CreateSpaceRequest): Space = withTx {
+        val user = getOrCreateUser()
         val entity = SpaceEntity().apply {
             name = request.name
-            userId = getUserId()
+            this.user = user
         }
         entity.persist<SpaceEntity>().awaitSuspending().toDto()
     }
@@ -64,10 +73,11 @@ class SpaceResource {
     @PUT
     @Path("/spaces/{id}")
     suspend fun updateSpace(@PathParam("id") id: UUID, request: UpdateSpaceRequest): Response = withTx {
+        val user = getOrCreateUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (entity.userId != getUserId()) {
+        if (entity.user.id != user.id) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
 
@@ -78,10 +88,11 @@ class SpaceResource {
     @DELETE
     @Path("/spaces/{id}")
     suspend fun deleteSpace(@PathParam("id") id: UUID): Response = withTx {
+        val user = getOrCreateUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
-        if (entity.userId != getUserId()) {
+        if (entity.user.id != user.id) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
 

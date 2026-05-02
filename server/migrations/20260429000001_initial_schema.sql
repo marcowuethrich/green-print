@@ -1,7 +1,13 @@
+CREATE TABLE users (
+    id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    external_id VARCHAR(255) NOT NULL UNIQUE
+);
+
 CREATE TABLE spaces (
     id      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    name    VARCHAR(255) NOT NULL
+    user_id UUID NOT NULL,
+    name    VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_spaces_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
 CREATE TABLE rooms (

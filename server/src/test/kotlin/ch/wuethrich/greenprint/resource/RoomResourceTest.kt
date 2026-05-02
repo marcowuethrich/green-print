@@ -2,6 +2,7 @@ package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
+import ch.wuethrich.greenprint.entity.UserEntity
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
@@ -24,7 +25,9 @@ class RoomResourceTest {
     @BeforeEach
     fun setup() {
         sf.withTransaction { _ ->
-            RoomEntity.deleteAll().flatMap { SpaceEntity.deleteAll() }
+            RoomEntity.deleteAll()
+                .flatMap { SpaceEntity.deleteAll() }
+                .flatMap { UserEntity.deleteAll() }
         }.await().indefinitely()
     }
 
