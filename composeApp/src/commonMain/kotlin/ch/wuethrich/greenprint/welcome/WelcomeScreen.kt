@@ -55,6 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.space.SpaceUiState
 import ch.wuethrich.greenprint.space.SpaceViewModel
+import ch.wuethrich.greenprint.ui.IconPicker
+import ch.wuethrich.greenprint.ui.IconRegistry
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
@@ -165,9 +167,9 @@ fun WelcomeScreen(
 
     if (showCreateModal) {
         CreateSpaceModal(
-            onConfirm = { name ->
+            onConfirm = { name, icon ->
                 isCreating = true
-                viewModel.createSpace(name)
+                viewModel.createSpace(name, icon)
                 showCreateModal = false
             },
             onDismiss = { showCreateModal = false }
@@ -277,7 +279,7 @@ private fun WelcomePopulatedContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter = painterResource(Res.drawable.ic_leaf),
+                        painter = IconRegistry.getPainter(state.space.icon),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
@@ -323,10 +325,11 @@ private fun WelcomeErrorContent(onRetry: () -> Unit) {
 
 @Composable
 private fun CreateSpaceModal(
-    onConfirm: (String) -> Unit,
+    onConfirm: (String, String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    var selectedIcon by remember { mutableStateOf<String?>(null) }
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -345,29 +348,38 @@ private fun CreateSpaceModal(
             ) 
         },
         text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(Res.string.space_name_hint)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (name.isNotBlank()) {
-                            onConfirm(name)
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(Res.string.space_name_hint)) },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .focusRequester(focusRequester),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (name.isNotBlank()) {
+                                onConfirm(name, selectedIcon)
+                            }
                         }
-                    }
+                    )
                 )
-            )
+                
+                IconPicker(
+                    label = "Choose an icon (optional)",
+                    availableIcons = IconRegistry.spaceIcons,
+                    selectedIcon = selectedIcon,
+                    onIconSelected = { selectedIcon = if (it == selectedIcon) null else it }
+                )
+            }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(name) },
+                onClick = { onConfirm(name, selectedIcon) },
                 enabled = name.isNotBlank(),
                 shape = MaterialTheme.shapes.medium
             ) {

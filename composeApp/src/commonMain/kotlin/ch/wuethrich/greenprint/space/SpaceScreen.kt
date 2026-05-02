@@ -53,6 +53,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ch.wuethrich.greenprint.ui.IconPicker
+import ch.wuethrich.greenprint.ui.IconRegistry
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
@@ -95,27 +97,46 @@ fun SpaceScreen(
         is SpaceUiState.HasSpace -> state.space.name
         else -> ""
     }
+    
+    val iconString = when (val state = uiState) {
+        is SpaceUiState.HasSpace -> state.space.icon
+        else -> null
+    }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { 
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    ) 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (uiState is SpaceUiState.HasSpace) {
+                            Icon(
+                                painter = IconRegistry.getPainter(iconString),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        ) 
+                    }
                 },
                 actions = {
                     if (uiState is SpaceUiState.HasSpace) {
                         SpaceSettingsMenu(
-                            onRename = { viewModel.updateSpace((uiState as SpaceUiState.HasSpace).space.id, it) },
+                            onRename = { newName, newIcon -> 
+                                viewModel.updateSpace((uiState as SpaceUiState.HasSpace).space.id, newName, newIcon) 
+                            },
                             onDelete = {
                                 viewModel.deleteSpace((uiState as SpaceUiState.HasSpace).space.id)
                                 onLeave()
                             },
                             onLeave = onLeave,
-                            spaceName = (uiState as SpaceUiState.HasSpace).space.name
+                            spaceName = (uiState as SpaceUiState.HasSpace).space.name,
+                            spaceIcon = (uiState as SpaceUiState.HasSpace).space.icon
                         )
                     }
                 },
@@ -144,10 +165,10 @@ fun SpaceScreen(
                 ) {
                     when (val state = uiState) {
                         SpaceUiState.Loading -> SpaceLoadingContent()
-                        SpaceUiState.Empty -> SpaceEmptyContent(onCreate = viewModel::createSpace)
+                        SpaceUiState.Empty -> SpaceEmptyContent(onCreate = { viewModel.createSpace(it) })
                         is SpaceUiState.HasSpace -> SpaceDetailContent(
                             state = state,
-                            onRename = { viewModel.updateSpace(state.space.id, it) },
+                            onRename = { newName, newIcon -> viewModel.updateSpace(state.space.id, newName, newIcon) },
                             onDelete = {
                                 viewModel.deleteSpace(state.space.id)
                                 onLeave()
@@ -165,10 +186,11 @@ fun SpaceScreen(
 
 @Composable
 private fun SpaceSettingsMenu(
-    onRename: (String) -> Unit,
+    onRename: (String, String?) -> Unit,
     onDelete: () -> Unit,
     onLeave: () -> Unit,
-    spaceName: String
+    spaceName: String,
+    spaceIcon: String?
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -218,8 +240,9 @@ private fun SpaceSettingsMenu(
     if (showRenameDialog) {
         RenameSpaceDialog(
             currentName = spaceName,
-            onConfirm = { newName ->
-                onRename(newName)
+            currentIcon = spaceIcon,
+            onConfirm = { newName, newIcon ->
+                onRename(newName, newIcon)
                 showRenameDialog = false
             },
             onDismiss = { showRenameDialog = false },
@@ -260,7 +283,7 @@ private fun SpaceEmptyContent(onCreate: (String) -> Unit) {
 @Composable
 private fun SpaceDetailContent(
     state: SpaceUiState.HasSpace,
-    onRename: (String) -> Unit,
+    onRename: (String, String?) -> Unit,
     onDelete: () -> Unit,
     onLeave: () -> Unit,
     focusRequester: FocusRequester
@@ -342,7 +365,8 @@ private fun SpaceErrorContent(onRetry: () -> Unit) {
 @Composable
 private fun RenameSpaceDialog(
     currentName: String,
-    onConfirm: (String) -> Unit,
+    currentIcon: String?,
+    onConfirm: (String, String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var textFieldValue by remember(currentName) {
@@ -353,6 +377,7 @@ private fun RenameSpaceDialog(
             )
         )
     }
+    var selectedIcon by remember(currentIcon) { mutableStateOf(currentIcon) }
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -364,30 +389,39 @@ private fun RenameSpaceDialog(
         shape = MaterialTheme.shapes.large,
         title = { Text(stringResource(Res.string.space_rename_dialog_title), fontWeight = FontWeight.Bold) },
         text = {
-            OutlinedTextField(
-                value = textFieldValue,
-                onValueChange = { textFieldValue = it },
-                label = { Text(stringResource(Res.string.space_name_hint)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (textFieldValue.text.isNotBlank() && textFieldValue.text != currentName) {
-                            onConfirm(textFieldValue.text)
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = textFieldValue,
+                    onValueChange = { textFieldValue = it },
+                    label = { Text(stringResource(Res.string.space_name_hint)) },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .focusRequester(focusRequester),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (textFieldValue.text.isNotBlank() && (textFieldValue.text != currentName || selectedIcon != currentIcon)) {
+                                onConfirm(textFieldValue.text, selectedIcon)
+                            }
                         }
-                    }
+                    )
                 )
-            )
+                
+                IconPicker(
+                    label = "Choose an icon (optional)",
+                    availableIcons = IconRegistry.spaceIcons,
+                    selectedIcon = selectedIcon,
+                    onIconSelected = { selectedIcon = if (it == selectedIcon) null else it }
+                )
+            }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(textFieldValue.text) },
-                enabled = textFieldValue.text.isNotBlank() && textFieldValue.text != currentName,
+                onClick = { onConfirm(textFieldValue.text, selectedIcon) },
+                enabled = textFieldValue.text.isNotBlank() && (textFieldValue.text != currentName || selectedIcon != currentIcon),
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(stringResource(Res.string.common_save), fontWeight = FontWeight.Bold)

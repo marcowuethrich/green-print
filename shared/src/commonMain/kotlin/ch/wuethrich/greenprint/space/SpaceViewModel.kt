@@ -36,22 +36,22 @@ class SpaceViewModel(
         viewModelScope.launch { loadSpace() }
     }
 
-    fun createSpace(name: String) {
+    fun createSpace(name: String, icon: String? = null) {
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
             _uiState.value = SpaceUiState.Loading
-            runCatching { spaceRepository.createSpace(trimmed) }
+            runCatching { spaceRepository.createSpace(trimmed, icon) }
                 .onSuccess { _uiState.value = SpaceUiState.HasSpace(it) }
                 .onFailure { _uiState.value = SpaceUiState.Error(it.message ?: "Unknown error") }
         }
     }
 
-    fun updateSpace(id: String, name: String) {
+    fun updateSpace(id: String, name: String, icon: String? = null) {
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
-            runCatching { spaceRepository.updateSpace(id, trimmed) }
+            runCatching { spaceRepository.updateSpace(id, trimmed, icon) }
                 .onSuccess { _uiState.value = SpaceUiState.HasSpace(it) }
                 .onFailure { _uiState.value = SpaceUiState.Error(it.message ?: "Unknown error") }
         }
