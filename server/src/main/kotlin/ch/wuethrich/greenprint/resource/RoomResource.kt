@@ -1,13 +1,12 @@
 package ch.wuethrich.greenprint.resource
 
+import ch.wuethrich.greenprint.auth.UserService
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
-import ch.wuethrich.greenprint.entity.UserEntity
 import ch.wuethrich.greenprint.model.CreateRoomRequest
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.UpdateRoomRequest
 import io.quarkus.security.Authenticated
-import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
 import jakarta.ws.rs.Consumes
@@ -28,14 +27,7 @@ import java.util.UUID
 class RoomResource {
 
     @Inject
-    lateinit var identity: SecurityIdentity
-
-    private fun getExternalId(): String = identity.principal?.name ?: "mock_user"
-
-    private suspend fun getOrCreateUser(): UserEntity =
-        UserEntity.find("externalId", getExternalId()).firstResult().awaitSuspending()
-            ?: UserEntity().apply { externalId = getExternalId() }
-                .also { it.persist<UserEntity>().awaitSuspending() }
+    lateinit var userService: UserService
 
     @POST
     @Path("/spaces/{spaceId}/rooms")
@@ -43,7 +35,7 @@ class RoomResource {
         @PathParam("spaceId") spaceId: UUID,
         request: CreateRoomRequest
     ): Response = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val space = SpaceEntity.findById(spaceId).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
@@ -65,7 +57,7 @@ class RoomResource {
         @PathParam("id") id: UUID,
         request: UpdateRoomRequest
     ): Response = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
@@ -82,7 +74,7 @@ class RoomResource {
     suspend fun deleteRoom(
         @PathParam("id") id: UUID
     ): Response = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 

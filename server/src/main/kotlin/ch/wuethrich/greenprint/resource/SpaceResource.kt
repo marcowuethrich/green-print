@@ -1,13 +1,12 @@
 package ch.wuethrich.greenprint.resource
 
+import ch.wuethrich.greenprint.auth.UserService
 import ch.wuethrich.greenprint.entity.SpaceEntity
-import ch.wuethrich.greenprint.entity.UserEntity
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
 import ch.wuethrich.greenprint.model.UpdateSpaceRequest
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.Space
 import io.quarkus.security.Authenticated
-import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
 import jakarta.ws.rs.Consumes
@@ -29,26 +28,19 @@ import java.util.UUID
 class SpaceResource {
 
     @Inject
-    lateinit var identity: SecurityIdentity
-
-    private fun getExternalId(): String = identity.principal?.name ?: "mock_user"
-
-    private suspend fun getOrCreateUser(): UserEntity =
-        UserEntity.find("externalId", getExternalId()).firstResult().awaitSuspending()
-            ?: UserEntity().apply { externalId = getExternalId() }
-                .also { it.persist<UserEntity>().awaitSuspending() }
+    lateinit var userService: UserService
 
     @GET
     @Path("/spaces")
     suspend fun getSpaces(): List<Space> = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         SpaceEntity.find("user", user).list().awaitSuspending().map { it.toDto() }
     }
 
     @GET
     @Path("/spaces/{id}")
     suspend fun getSpace(@PathParam("id") id: UUID): Response = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
@@ -62,7 +54,7 @@ class SpaceResource {
     @POST
     @Path("/spaces")
     suspend fun createSpace(request: CreateSpaceRequest): Space = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val entity = SpaceEntity().apply {
             name = request.name
             this.user = user
@@ -73,7 +65,7 @@ class SpaceResource {
     @PUT
     @Path("/spaces/{id}")
     suspend fun updateSpace(@PathParam("id") id: UUID, request: UpdateSpaceRequest): Response = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
@@ -88,7 +80,7 @@ class SpaceResource {
     @DELETE
     @Path("/spaces/{id}")
     suspend fun deleteSpace(@PathParam("id") id: UUID): Response = withTx {
-        val user = getOrCreateUser()
+        val user = userService.currentUser()
         val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
 
