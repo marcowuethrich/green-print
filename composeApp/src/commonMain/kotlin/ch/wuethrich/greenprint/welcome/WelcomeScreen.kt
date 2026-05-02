@@ -52,7 +52,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import ch.wuethrich.greenprint.model.Space
+import ch.wuethrich.greenprint.space.SpaceScreen
 import ch.wuethrich.greenprint.space.SpaceUiEffect
 import ch.wuethrich.greenprint.space.SpaceUiState
 import ch.wuethrich.greenprint.space.SpaceViewModel
@@ -73,135 +77,135 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun WelcomeScreen(
-    onEnterSpace: (Space) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val viewModel: SpaceViewModel = koinViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showCreateModal by remember { mutableStateOf(false) }
-    var visible by remember { mutableStateOf(false) }
-    var isCreating by remember { mutableStateOf(false) }
-    val welcomeFocusRequester = remember { FocusRequester() }
-    
-    var validationError by remember { mutableStateOf<String?>(null) }
+class WelcomeScreen : Screen {
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val viewModel: SpaceViewModel = koinViewModel()
+        val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+        var showCreateModal by remember { mutableStateOf(false) }
+        var visible by remember { mutableStateOf(false) }
+        var isCreating by remember { mutableStateOf(false) }
+        val welcomeFocusRequester = remember { FocusRequester() }
+        
+        var validationError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        visible = true
-    }
-
-    // Handle one-time effects (like validation errors)
-    LaunchedEffect(Unit) {
-        viewModel.uiEffect.collect { effect ->
-            when (effect) {
-                is SpaceUiEffect.ValidationError -> {
-                    validationError = effect.message
-                    isCreating = false
-                    showCreateModal = true
-                }
-            }
+        LaunchedEffect(Unit) {
+            visible = true
         }
-    }
 
-    // Handle auto-focus when visible and not in modal
-    LaunchedEffect(visible, showCreateModal, uiState) {
-        if (visible && !showCreateModal && uiState !is SpaceUiState.Loading) {
-            welcomeFocusRequester.requestFocus()
-        }
-    }
-
-    // Auto-navigate after successful creation
-    LaunchedEffect(uiState) {
-        val state = uiState
-        if (isCreating && state is SpaceUiState.HasSpace && validationError == null) {
-            isCreating = false
-            showCreateModal = false
-            onEnterSpace(state.space)
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            painter = painterResource(Res.drawable.ic_leaf),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "The World",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        },
-        containerColor = Color.Transparent,
-        modifier = modifier.background(Brush.verticalGradient(DesignSystem.BackgroundGradient))
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier.padding(innerPadding).fillMaxSize(),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { 40 })
-            ) {
-                Column(
-                    modifier = Modifier
-                        .widthIn(max = 600.dp)
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    when (val state = uiState) {
-                        SpaceUiState.Loading -> WelcomeLoadingContent()
-                        SpaceUiState.Empty -> WelcomeEmptyContent(
-                            onCreateClick = { 
-                                validationError = null
-                                showCreateModal = true 
-                            },
-                            focusRequester = welcomeFocusRequester
-                        )
-                        is SpaceUiState.HasSpace -> WelcomePopulatedContent(
-                            state = state,
-                            onEnter = onEnterSpace,
-                            focusRequester = welcomeFocusRequester
-                        )
-                        is SpaceUiState.Error -> WelcomeErrorContent(onRetry = viewModel::retry)
+        // Handle one-time effects (like validation errors)
+        LaunchedEffect(Unit) {
+            viewModel.uiEffect.collect { effect ->
+                when (effect) {
+                    is SpaceUiEffect.ValidationError -> {
+                        validationError = effect.message
+                        isCreating = false
+                        showCreateModal = true
                     }
                 }
             }
         }
-    }
 
-    if (showCreateModal) {
-        CreateSpaceModal(
-            error = validationError,
-            onConfirm = { name, icon ->
-                validationError = null
-                isCreating = true
-                viewModel.createSpace(name, icon)
-                // Modal stays open until success or error
-            },
-            onDismiss = { 
+        // Handle auto-focus when visible and not in modal
+        LaunchedEffect(visible, showCreateModal, uiState) {
+            if (visible && !showCreateModal && uiState !is SpaceUiState.Loading) {
+                welcomeFocusRequester.requestFocus()
+            }
+        }
+
+        // Auto-navigate after successful creation
+        LaunchedEffect(uiState) {
+            val state = uiState
+            if (isCreating && state is SpaceUiState.HasSpace && validationError == null) {
+                isCreating = false
                 showCreateModal = false
-                validationError = null
-            },
-            onClearError = {
-                validationError = null
+                navigator.push(SpaceScreen())
             }
-        )
+        }
+
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(Res.drawable.ic_leaf),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "The World",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
+                )
+            },
+            containerColor = Color.Transparent,
+            modifier = Modifier.background(Brush.verticalGradient(DesignSystem.BackgroundGradient))
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier.padding(innerPadding).fillMaxSize(),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { 40 })
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 600.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        when (val state = uiState) {
+                            SpaceUiState.Loading -> WelcomeLoadingContent()
+                            SpaceUiState.Empty -> WelcomeEmptyContent(
+                                onCreateClick = { 
+                                    validationError = null
+                                    showCreateModal = true 
+                                },
+                                focusRequester = welcomeFocusRequester
+                            )
+                            is SpaceUiState.HasSpace -> WelcomePopulatedContent(
+                                state = state,
+                                onEnter = { navigator.push(SpaceScreen()) },
+                                focusRequester = welcomeFocusRequester
+                            )
+                            is SpaceUiState.Error -> WelcomeErrorContent(onRetry = viewModel::retry)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showCreateModal) {
+            CreateSpaceModal(
+                error = validationError,
+                onConfirm = { name, icon ->
+                    validationError = null
+                    isCreating = true
+                    viewModel.createSpace(name, icon)
+                    // Modal stays open until success or error
+                },
+                onDismiss = { 
+                    showCreateModal = false
+                    validationError = null
+                },
+                onClearError = {
+                    validationError = null
+                }
+            )
+        }
     }
 }
 
