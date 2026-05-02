@@ -119,4 +119,46 @@ class SpaceResourceTest {
             .then().statusCode(200)
             .body("$", hasSize<Any>(0))
     }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating space without icon sets default`() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "No Icon Space"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .body("name", equalTo("No Icon Space"))
+            .body("icon", equalTo("default_space"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating space with icon stores it`() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Custom Icon Space", "icon": "house_24"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .body("name", equalTo("Custom Icon Space"))
+            .body("icon", equalTo("house_24"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `updating space without icon sets default`() {
+        val spaceId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Initial Space", "icon": "house_24"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .extract().path<String>("id")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Updated Space"}""")
+            .`when`().put("/spaces/$spaceId")
+            .then().statusCode(200)
+            .body("icon", equalTo("default_space"))
+    }
 }

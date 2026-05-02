@@ -7,6 +7,7 @@ CREATE TABLE spaces (
     id      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL,
     name    VARCHAR(255) NOT NULL,
+    icon    VARCHAR(255),
     CONSTRAINT fk_spaces_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT uq_space_name_per_user UNIQUE (user_id, name)
 );
@@ -14,6 +15,7 @@ CREATE TABLE spaces (
 CREATE TABLE rooms (
     id       UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name     VARCHAR(255) NOT NULL,
+    icon     VARCHAR(255),
     space_id UUID NOT NULL,
     CONSTRAINT fk_rooms_spaces FOREIGN KEY (space_id) REFERENCES spaces (id) ON DELETE CASCADE,
     CONSTRAINT uq_room_name_per_space UNIQUE (space_id, name)

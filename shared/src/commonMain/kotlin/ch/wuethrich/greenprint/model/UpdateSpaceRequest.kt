@@ -4,5 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class UpdateSpaceRequest(
-    val name: String
+    val name: String,
+    val icon: String? = null
 )

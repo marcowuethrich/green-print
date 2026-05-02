@@ -3,9 +3,9 @@ package ch.wuethrich.greenprint.resource
 import ch.wuethrich.greenprint.auth.UserService
 import ch.wuethrich.greenprint.auth.requireOwner
 import ch.wuethrich.greenprint.entity.SpaceEntity
+import ch.wuethrich.greenprint.entity.toDto
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
 import ch.wuethrich.greenprint.model.UpdateSpaceRequest
-import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.Space
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.coroutines.awaitSuspending
@@ -54,6 +54,7 @@ class SpaceResource {
         val user = userService.currentUser()
         val entity = SpaceEntity().apply {
             name = request.name
+            icon = request.icon ?: "default_space"
             this.user = user
         }
         entity.persist<SpaceEntity>().awaitSuspending().toDto()
@@ -67,6 +68,7 @@ class SpaceResource {
 
         requireOwner(entity.user, userService.currentUser())
         entity.name = request.name
+        entity.icon = request.icon ?: "default_space"
         Response.ok(entity.toDto()).build()
     }
 
@@ -80,10 +82,4 @@ class SpaceResource {
         entity.delete().awaitSuspending()
         Response.noContent().build()
     }
-
-    private fun SpaceEntity.toDto() = Space(
-        id = id!!.toString(),
-        name = name,
-        rooms = rooms.map { Room(it.id!!.toString(), id!!.toString(), it.name) }
-    )
 }

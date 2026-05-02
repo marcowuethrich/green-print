@@ -114,4 +114,65 @@ class RoomResourceTest {
             .`when`().post("/spaces/$spaceId2/rooms")
             .then().statusCode(201)
     }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating room without icon sets default`() {
+        val spaceId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Space"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .extract().path<String>("id")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "No Icon Room"}""")
+            .`when`().post("/spaces/$spaceId/rooms")
+            .then().statusCode(201)
+            .body("icon", equalTo("default_room"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating room with icon stores it`() {
+        val spaceId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Space"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .extract().path<String>("id")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Custom Icon Room", "icon": "sofa_24"}""")
+            .`when`().post("/spaces/$spaceId/rooms")
+            .then().statusCode(201)
+            .body("icon", equalTo("sofa_24"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `updating room without icon sets default`() {
+        val spaceId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Space"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .extract().path<String>("id")
+
+        val roomId = given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Initial Room", "icon": "sofa_24"}""")
+            .`when`().post("/spaces/$spaceId/rooms")
+            .then().statusCode(201)
+            .extract().path<String>("id")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Updated Room"}""")
+            .`when`().put("/rooms/$roomId")
+            .then().statusCode(200)
+            .body("icon", equalTo("default_room"))
+    }
 }

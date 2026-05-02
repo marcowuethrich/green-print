@@ -1,5 +1,6 @@
 package ch.wuethrich.greenprint.entity
 
+import ch.wuethrich.greenprint.model.Space
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheCompanionBase
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.CascadeType
@@ -28,8 +29,17 @@ class SpaceEntity : PanacheEntityBase {
 
     lateinit var name: String
 
+    var icon: String? = null
+
     @OneToMany(mappedBy = "space", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var rooms: MutableList<RoomEntity> = mutableListOf()
 
     companion object : PanacheCompanionBase<SpaceEntity, UUID>
 }
+
+fun SpaceEntity.toDto() = Space(
+    id = id!!.toString(),
+    name = name,
+    icon = icon,
+    rooms = rooms.map { it.toDto() }
+)
