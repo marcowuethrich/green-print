@@ -20,14 +20,21 @@ Users can define where their plants live.
 
 ### User Stories
 - As a user, I want to create a profile for my living space (e.g., "My Apartment").
+- As a user, I want to optionally choose an icon for my living space from a predefined list (e.g., House, Apartment, Office).
 - As a user, I want to rename my living space if I move or change its name.
+- As a user, I want to change or remove the custom icon for my space at any time.
 - As a user, I want to enter a living space from the Welcome Screen to manage its rooms and plants.
 - As a user, I want to leave a living space to return to the Welcome Screen.
 - As a user, I want to add rooms to my space (e.g., "Living Room", "Balcony").
+- As a user, I want to optionally choose an icon for each room (e.g., Sofa for Living Room, Bed for Bedroom).
 - As a user, I want to rename or delete rooms if my layout changes.
 
 ### Flow & Restrictions (Frontend)
 - **Single Space Limit**: Initially, the user can only create **one** living space. This restriction is enforced in the frontend (the "Create" button is hidden/disabled on the Welcome Screen if a space exists).
+- **Icon Selection**: 
+    - During creation, the user can skip icon selection.
+    - If skipped, the backend will assign a default icon based on the entity type (Space or Room).
+    - The icon picker should show a categorized list (Space icons vs Room icons).
 - **Auto-Entry**: After creating a living space, the user is automatically "entered" into that space and navigated to the list of rooms within it.
 - **Navigation**: 
     - Leaving a space returns the user to the Welcome Screen (list of existing living spaces).
@@ -35,7 +42,12 @@ Users can define where their plants live.
 - **Settings Menu**: The "Leave" and "Delete" actions for a living space must be tucked away behind a **Settings** menu within the space view to prevent accidental triggers.
 
 ### Technical Notes
-- **Entities**: `Space` (UUID, Name), `Room` (UUID, Name).
+- **Entities**: 
+    - `Space` (UUID, Name, Icon: String?).
+    - `Room` (UUID, Name, Icon: String?).
+- **Icon Library**:
+    - Icons are hardcoded in the frontend and referenced by a unique string ID (e.g., `house_24`, `bedroom_24`).
+    - The backend stores this ID. If `null` is sent during creation, the backend provides a default (e.g., `default_space`, `default_room`).
 - **Validation**: 
     - **Space Names**: Must be unique for the **same user**. Different users can reuse space names from other users.
     - **Room Names**: Must be unique within a space. Different users may reuse the same room names in their own spaces.
