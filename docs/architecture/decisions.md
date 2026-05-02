@@ -109,8 +109,8 @@ server/         → Panache entities + mappers to/from DTOs
 - Decouples watering history from the current plant state for better analytics.
 
 **Model Definitions (shared/ DTOs):**
-- `Space`: ID, Name, List of Rooms.
-- `Room`: ID, Name, List of Plants.
+- `Space`: UUID, Name, List of Rooms.
+- `Room`: UUID, Name, List of Plants.
 - `Plant`: ID, Name, Species, PotSize, SoilType, WateringIntervalDays, LastWateredDate (computed or explicitly stored).
 - `WateringEvent`: ID, PlantID, Timestamp.
 

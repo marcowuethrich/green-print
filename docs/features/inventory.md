@@ -11,8 +11,8 @@ Users can define where their plants live. Initially, we support a single "Living
 - As a user, I want to rename or delete rooms if my layout changes.
 
 ### Technical Notes
-- **Entity**: `Room` (UUID, Name).
-- **Validation**: Room names must be unique within a space.
+- **Entities**: `Space` (UUID, Name), `Room` (UUID, Name).
+- **Validation**: Room names must be unique within a space. Different users may reuse the same room names in their own spaces.
 
 ## 2. Plant CRUD
 The core of the app is managing individual plants.

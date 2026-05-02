@@ -18,6 +18,7 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import java.util.UUID
 
 @Path("/")
 @Produces(MediaType.APPLICATION_JSON)
@@ -33,7 +34,7 @@ class RoomResource {
     @POST
     @Path("/spaces/{spaceId}/rooms")
     suspend fun createRoom(
-        @PathParam("spaceId") spaceId: Long,
+        @PathParam("spaceId") spaceId: UUID,
         request: CreateRoomRequest
     ): Response = withTx {
         val space = SpaceEntity.findById(spaceId).awaitSuspending()
@@ -54,7 +55,7 @@ class RoomResource {
     @PUT
     @Path("/rooms/{id}")
     suspend fun updateRoom(
-        @PathParam("id") id: Long,
+        @PathParam("id") id: UUID,
         request: UpdateRoomRequest
     ): Response = withTx {
         val room = RoomEntity.findById(id).awaitSuspending()
@@ -71,7 +72,7 @@ class RoomResource {
     @DELETE
     @Path("/rooms/{id}")
     suspend fun deleteRoom(
-        @PathParam("id") id: Long
+        @PathParam("id") id: UUID
     ): Response = withTx {
         val room = RoomEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
@@ -80,13 +81,13 @@ class RoomResource {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
 
-        room.deleteDirectly()
+        room.deleteDirectly(room.id)
         Response.noContent().build()
     }
 
     private fun RoomEntity.toDto() = Room(
-        id = id!!,
-        spaceId = space.id!!,
+        id = id!!.toString(),
+        spaceId = space.id!!.toString(),
         name = name
     )
 }

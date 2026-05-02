@@ -13,10 +13,10 @@ import io.ktor.client.request.setBody
 
 interface SpaceRepository {
     suspend fun getSpaces(): List<Space>
-    suspend fun getSpace(id: Long): Space
+    suspend fun getSpace(id: String): Space
     suspend fun createSpace(name: String): Space
-    suspend fun updateSpace(id: Long, name: String): Space
-    suspend fun deleteSpace(id: Long)
+    suspend fun updateSpace(id: String, name: String): Space
+    suspend fun deleteSpace(id: String)
 }
 
 class SpaceRepositoryImpl(
@@ -27,7 +27,7 @@ class SpaceRepositoryImpl(
         return httpClient.get("$baseUrl/spaces").body()
     }
 
-    override suspend fun getSpace(id: Long): Space {
+    override suspend fun getSpace(id: String): Space {
         return httpClient.get("$baseUrl/spaces/$id").body()
     }
 
@@ -37,13 +37,13 @@ class SpaceRepositoryImpl(
         }.body()
     }
 
-    override suspend fun updateSpace(id: Long, name: String): Space {
+    override suspend fun updateSpace(id: String, name: String): Space {
         return httpClient.put("$baseUrl/spaces/$id") {
             setBody(UpdateSpaceRequest(name))
         }.body()
     }
 
-    override suspend fun deleteSpace(id: Long) {
+    override suspend fun deleteSpace(id: String) {
         httpClient.delete("$baseUrl/spaces/$id")
     }
 }

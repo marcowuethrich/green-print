@@ -2,11 +2,8 @@ package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
-import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
-import io.quarkus.test.vertx.RunOnVertxContext
-import io.quarkus.test.vertx.UniAsserter
 import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
 import org.hamcrest.Matchers.equalTo
@@ -41,7 +38,7 @@ class SpaceResourceTest {
             .`when`().post("/spaces")
             .then().statusCode(200)
             .body("name", equalTo("My Apartment"))
-            .extract().path<Int>("id")
+            .extract().path<String>("id")
 
         given()
             .contentType(ContentType.JSON)

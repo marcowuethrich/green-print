@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Room(
-    val id: Long,
-    val spaceId: Long,
+    val id: String,
+    val spaceId: String,
     val name: String
 )

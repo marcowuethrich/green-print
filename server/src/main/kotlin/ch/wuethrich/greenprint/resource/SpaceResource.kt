@@ -19,6 +19,7 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import java.util.UUID
 
 @Path("/")
 @Produces(MediaType.APPLICATION_JSON)
@@ -39,14 +40,14 @@ class SpaceResource {
 
     @GET
     @Path("/spaces/{id}")
-    suspend fun getSpace(@PathParam("id") id: Long): Response = withTx {
-        val entity = SpaceEntity.findById(id).awaitSuspending() 
+    suspend fun getSpace(@PathParam("id") id: UUID): Response = withTx {
+        val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-            
+
         if (entity.userId != getUserId()) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
-        
+
         Response.ok(entity.toDto()).build()
     }
 
@@ -62,35 +63,35 @@ class SpaceResource {
 
     @PUT
     @Path("/spaces/{id}")
-    suspend fun updateSpace(@PathParam("id") id: Long, request: UpdateSpaceRequest): Response = withTx {
-        val entity = SpaceEntity.findById(id).awaitSuspending() 
+    suspend fun updateSpace(@PathParam("id") id: UUID, request: UpdateSpaceRequest): Response = withTx {
+        val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-            
+
         if (entity.userId != getUserId()) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
-        
+
         entity.name = request.name
         Response.ok(entity.toDto()).build()
     }
 
     @DELETE
     @Path("/spaces/{id}")
-    suspend fun deleteSpace(@PathParam("id") id: Long): Response = withTx {
-        val entity = SpaceEntity.findById(id).awaitSuspending() 
+    suspend fun deleteSpace(@PathParam("id") id: UUID): Response = withTx {
+        val entity = SpaceEntity.findById(id).awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-            
+
         if (entity.userId != getUserId()) {
             return@withTx Response.status(Response.Status.FORBIDDEN).build()
         }
-        
+
         entity.delete().awaitSuspending()
         Response.noContent().build()
     }
 
     private fun SpaceEntity.toDto() = Space(
-        id = id!!,
+        id = id!!.toString(),
         name = name,
-        rooms = rooms.map { Room(it.id!!, id!!, it.name) }
+        rooms = rooms.map { Room(it.id!!.toString(), id!!.toString(), it.name) }
     )
 }
