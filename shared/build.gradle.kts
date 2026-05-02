@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -14,8 +15,8 @@ kotlin {
         }
     }
 
-//    iosArm64()
-//    iosSimulatorArm64()
+    iosArm64()
+    iosSimulatorArm64()
 
     jvm()
 
@@ -40,6 +41,7 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.androidx.lifecycle.viewmodel)
+            implementation(libs.sqldelight.coroutines)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -48,18 +50,29 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqldelight.android.driver)
         }
-//        iosMain.dependencies {
-//            implementation(libs.ktor.client.darwin)
-//        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.native.driver)
+        }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqldelight.sqlite.driver)
         }
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
         }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
+        }
+    }
+}
+
+sqldelight {
+    databases {
+        create("GreenPrintDb") {
+            packageName.set("ch.wuethrich.greenprint.db")
         }
     }
 }

@@ -56,6 +56,6 @@ val networkModule = module {
             }
         }
     }
-    single<SpaceRepository> { SpaceRepositoryImpl(get(), BASE_URL) }
-    single<RoomRepository> { RoomRepositoryImpl(get(), BASE_URL) }
+    single<SpaceRepository> { SpaceRepositoryImpl(get(), BASE_URL, get()) }
+    single<RoomRepository> { RoomRepositoryImpl(get(), BASE_URL, get()) }
 }

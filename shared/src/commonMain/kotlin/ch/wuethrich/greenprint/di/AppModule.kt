@@ -1,10 +1,19 @@
 package ch.wuethrich.greenprint.di
 
+import ch.wuethrich.greenprint.db.GreenPrintDb
+import ch.wuethrich.greenprint.db.createDatabase
 import org.koin.core.context.startKoin
-import org.koin.core.module.Module
+import org.koin.dsl.KoinAppDeclaration
+import org.koin.dsl.module
 
-fun initKoin(additionalModules: List<Module> = emptyList()) {
+val databaseModule = module {
+    single { createDatabase(get()) }
+    single { get<GreenPrintDb>().greenPrintDbQueries }
+}
+
+fun initKoin(appDeclaration: KoinAppDeclaration = {}) {
     startKoin {
-        modules(listOf(networkModule, viewModelModule) + additionalModules)
+        appDeclaration()
+        modules(platformModule, databaseModule, networkModule, viewModelModule)
     }
 }

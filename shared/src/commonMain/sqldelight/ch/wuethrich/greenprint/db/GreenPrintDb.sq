@@ -1,0 +1,44 @@
+CREATE TABLE SpaceEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    icon TEXT
+);
+
+CREATE TABLE RoomEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    spaceId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    icon TEXT,
+    FOREIGN KEY(spaceId) REFERENCES SpaceEntity(id) ON DELETE CASCADE
+);
+
+-- Queries
+insertSpace:
+INSERT OR REPLACE INTO SpaceEntity(id, name, icon) VALUES (?, ?, ?);
+
+insertRoom:
+INSERT OR REPLACE INTO RoomEntity(id, spaceId, name, icon) VALUES (?, ?, ?, ?);
+
+selectAllSpaces:
+SELECT * FROM SpaceEntity;
+
+selectSpaceById:
+SELECT * FROM SpaceEntity WHERE id = ?;
+
+selectAllRooms:
+SELECT * FROM RoomEntity;
+
+selectRoomsBySpaceId:
+SELECT * FROM RoomEntity WHERE spaceId = ?;
+
+deleteSpace:
+DELETE FROM SpaceEntity WHERE id = ?;
+
+deleteRoom:
+DELETE FROM RoomEntity WHERE id = ?;
+
+deleteAllSpaces:
+DELETE FROM SpaceEntity;
+
+deleteAllRooms:
+DELETE FROM RoomEntity;
