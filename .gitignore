@@ -28,3 +28,4 @@ Pods/
 # Claude Code
 .claude/settings.local.json
 CLAUDE.local.md
+.grepai/
