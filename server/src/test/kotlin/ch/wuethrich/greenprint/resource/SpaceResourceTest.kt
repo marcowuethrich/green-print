@@ -14,17 +14,22 @@ import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
+import jakarta.inject.Inject
+import org.hibernate.reactive.mutiny.Mutiny
+import org.junit.jupiter.api.parallel.ResourceLock
+
 @QuarkusTest
+@ResourceLock("database")
 class SpaceResourceTest {
 
+    @Inject
+    lateinit var sf: Mutiny.SessionFactory
+
     @BeforeEach
-    @RunOnVertxContext
-    fun setup(asserter: UniAsserter) {
-        asserter.execute {
-            Panache.withTransaction {
-                RoomEntity.deleteAll().flatMap { SpaceEntity.deleteAll() }
-            }
-        }
+    fun setup() {
+        sf.withTransaction { _ ->
+            RoomEntity.deleteAll().flatMap { SpaceEntity.deleteAll() }
+        }.await().indefinitely()
     }
 
     @Test
