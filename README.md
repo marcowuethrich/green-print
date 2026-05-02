@@ -58,7 +58,7 @@ You can run these directly from your terminal or use the run configurations in A
 ./gradlew :composeApp:assembleDebug
 ```
 
-**🍎 iOS:**
+**🍎 iOS:** [DISABLED]
 Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use the run configuration in Android Studio.
 
 **🖥️ Desktop (JVM):**

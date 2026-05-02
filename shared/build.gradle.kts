@@ -14,8 +14,8 @@ kotlin {
         }
     }
 
-    iosArm64()
-    iosSimulatorArm64()
+//    iosArm64()
+//    iosSimulatorArm64()
 
     jvm()
 
@@ -49,9 +49,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
         }
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
-        }
+//        iosMain.dependencies {
+//            implementation(libs.ktor.client.darwin)
+//        }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
         }
