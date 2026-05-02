@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.auth.UserService
+import ch.wuethrich.greenprint.auth.requireOwner
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.model.CreateRoomRequest
