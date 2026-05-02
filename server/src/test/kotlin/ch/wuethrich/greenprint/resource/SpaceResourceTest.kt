@@ -34,6 +34,60 @@ class SpaceResourceTest {
 
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
+    fun `duplicate space name for same user returns 409`() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "My Apartment"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "My Apartment"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(409)
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `space name uniqueness is scoped to user - alice side`() {
+        givenSpace(forUser = "bob", named = "Unique-Flat")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Unique-Flat"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+    }
+
+    @Test
+    @TestSecurity(user = "bob", roles = ["user"])
+    fun `space name uniqueness is scoped to user - bob side`() {
+        givenSpace(forUser = "alice", named = "Unique-Flat")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Unique-Flat"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+    }
+
+    @Suppress("SameParameterValue")
+    private fun givenSpace(forUser: String, named: String) {
+        sf.withTransaction { _ ->
+            val user = UserEntity().apply { externalId = forUser }
+            user.persist<UserEntity>().flatMap { persistedUser ->
+                val space = SpaceEntity().apply {
+                    name = named
+                    this.user = persistedUser
+                }
+                space.persist<SpaceEntity>()
+            }
+        }.await().indefinitely()
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
     fun `test space lifecycle`() {
         val spaceId = given()
             .contentType(ContentType.JSON)

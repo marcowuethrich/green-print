@@ -12,10 +12,11 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.util.UUID
 
 @Entity
-@Table(name = "spaces")
+@Table(name = "spaces", uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "name"])])
 class SpaceEntity : PanacheEntityBase {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
