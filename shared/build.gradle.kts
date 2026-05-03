@@ -62,9 +62,11 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.sqldelight.web.worker.driver)
         }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.sqldelight.web.worker.driver)
         }
     }
 }
