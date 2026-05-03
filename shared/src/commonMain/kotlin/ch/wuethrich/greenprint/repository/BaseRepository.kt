@@ -18,19 +18,33 @@ abstract class BaseRepository {
         save: suspend (T) -> Unit
     ): Flow<NetworkResult<T>> = flow {
         // 1. Emit current cache
-        emit(NetworkResult.Success(cached()))
+        val initialCache = cached()
+        emit(NetworkResult.Success(initialCache))
 
         // 2. Fetch from network
         try {
             val result = fetch()
             if (result is NetworkResult.Success) {
                 save(result.data)
-                // 3. Emit updated data from cache to ensure consistency with DB state
-                emit(NetworkResult.Success(cached()))
+                
+                // 3. Try to emit updated data from cache
+                val updatedCache = cached()
+                
+                // Fallback: If cache is empty but network gave us data, the DB might be non-functional (Wasm mock)
+                // We check if T is a List and handle accordingly.
+                val isCacheEmpty = (updatedCache as? Collection<*>)?.isEmpty() ?: (updatedCache == null)
+                val isNetworkNotEmpty = (result.data as? Collection<*>)?.isNotEmpty() ?: (result.data != null)
+                
+                if (isCacheEmpty && isNetworkNotEmpty) {
+                    emit(result)
+                } else {
+                    emit(NetworkResult.Success(updatedCache))
+                }
             } else if (result is NetworkResult.Failure) {
-                // Optionally emit failure if cache was empty or we want to show error
-                // For a professional offline-first, we might just keep the cached data
-                emit(result)
+                // If network fails and cache was empty, we emit the failure
+                if ((initialCache as? Collection<*>)?.isEmpty() != false) {
+                    emit(result)
+                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
