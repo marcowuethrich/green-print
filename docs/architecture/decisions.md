@@ -18,17 +18,21 @@ Short records of the key decisions made before feature implementation began.
 
 ---
 
-## ADR-002 — Client State: In-Memory (Online-Only)
+## ADR-002 — Client State: Local Persistence (SQLDelight)
 
-**Decision:** All client state is held in-memory inside KMP ViewModels. There is no local persistence layer for now.
+**Decision:** Use **SQLDelight** as the local persistence and caching layer across all KMP targets.
 
 **Rationale:**
-- Removes the complexity of cache invalidation and sync conflicts at the start of the project.
-- The app is a personal portfolio tool — users are expected to have connectivity.
+- Provides a type-safe API for SQLite, ensuring consistency between the schema and Kotlin code.
+- Enables offline support by caching server data locally.
+- Supports all current targets (Android, iOS, JVM, JS, Wasm) using platform-specific drivers.
+- Facilitates reactive UI updates by exposing database queries as Coroutine Flows.
 
 **Consequences:**
-- Data is lost if the app is killed; the next launch re-fetches from the server.
-- Adding a local cache later (e.g. Room on Android, or SQLDelight for KMP) is a self-contained change: swap the repository data source without touching ViewModels or the API layer.
+- Data persists across app restarts.
+- Repositories are responsible for synchronizing local cache with the remote API.
+- Migrations must be handled via SQLDelight's `.sq` files.
+- Platform-specific `DriverFactory` implementations are required to initialize the SQLite driver.
 
 ---
 
