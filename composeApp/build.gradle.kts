@@ -24,6 +24,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            export(projects.shared)
         }
     }
 
@@ -60,7 +61,7 @@ kotlin {
             implementation(libs.voyager.screenmodel)
             implementation(libs.voyager.transitions)
             implementation(libs.voyager.koin)
-            implementation(projects.shared)
+            api(projects.shared)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
