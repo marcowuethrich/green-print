@@ -121,14 +121,19 @@ class SpaceViewModel(
 
     private suspend fun loadSpace(silent: Boolean = false) {
         if (!silent) _uiState.value = SpaceUiState.Loading
-        when (val result = spaceRepository.getSpaces()) {
-            is NetworkResult.Success -> {
-                _uiState.value = result.data.firstOrNull()
-                    ?.let { SpaceUiState.HasSpace(it) }
-                    ?: SpaceUiState.Empty
-            }
-            is NetworkResult.Failure -> {
-                if (!silent) _uiState.value = SpaceUiState.Error(result.error.toMessage())
+        spaceRepository.observeSpaces().collect { result ->
+            when (result) {
+                is NetworkResult.Success -> {
+                    _uiState.value = result.data.firstOrNull()
+                        ?.let { SpaceUiState.HasSpace(it) }
+                        ?: SpaceUiState.Empty
+                }
+                is NetworkResult.Failure -> {
+                    if (!silent && _uiState.value is SpaceUiState.Loading) {
+                        _uiState.value = SpaceUiState.Error(result.error.toMessage())
+                    }
+                    // For background updates, we might just log or show a toast/snackbar via effect
+                }
             }
         }
     }

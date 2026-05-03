@@ -10,9 +10,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.HttpMethod
+import kotlinx.coroutines.flow.Flow
 
 interface SpaceRepository {
-    suspend fun getSpaces(): NetworkResult<List<Space>>
+    fun observeSpaces(): Flow<NetworkResult<List<Space>>>
     suspend fun getSpace(id: String): NetworkResult<Space>
     suspend fun createSpace(name: String, icon: String? = null): NetworkResult<Space>
     suspend fun updateSpace(id: String, name: String, icon: String? = null): NetworkResult<Space>
@@ -23,17 +24,20 @@ class SpaceRepositoryImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String,
     private val queries: GreenPrintDbQueries
-) : SpaceRepository {
-    override suspend fun getSpaces(): NetworkResult<List<Space>> {
-        val result = httpClient.safeRequest<List<Space>> {
-            url("$baseUrl/spaces")
-            method = HttpMethod.Get
-        }
-        
-        if (result is NetworkResult.Success) {
+) : BaseRepository(), SpaceRepository {
+
+    override fun observeSpaces(): Flow<NetworkResult<List<Space>>> = offlineFirst(
+        cached = { fetchSpacesFromCache() },
+        fetch = {
+            httpClient.safeRequest<List<Space>> {
+                url("$baseUrl/spaces")
+                method = HttpMethod.Get
+            }
+        },
+        save = { spaces ->
             queries.transaction {
                 queries.deleteAllSpaces()
-                result.data.forEach { space ->
+                spaces.forEach { space ->
                     queries.insertSpace(space.id, space.name, space.icon)
                     space.rooms.forEach { room ->
                         queries.insertRoom(room.id, space.id, room.name, room.icon)
@@ -41,79 +45,66 @@ class SpaceRepositoryImpl(
                 }
             }
         }
-        
-        // If network fails, return cached data as success (Offline-first approach)
-        val cachedSpaces = queries.selectAllSpaces().executeAsList().map { entity ->
+    )
+
+    private fun fetchSpacesFromCache(): List<Space> {
+        return queries.selectAllSpaces().executeAsList().map { entity ->
             val rooms = queries.selectRoomsBySpaceId(entity.id).executeAsList().map { roomEntity ->
                 Room(roomEntity.id, roomEntity.spaceId, roomEntity.name, roomEntity.icon)
             }
             Space(entity.id, entity.name, entity.icon, rooms)
         }
-        
-        return if (result is NetworkResult.Failure && cachedSpaces.isNotEmpty()) {
-            NetworkResult.Success(cachedSpaces)
-        } else {
-            result
-        }
     }
 
     override suspend fun getSpace(id: String): NetworkResult<Space> {
-        val result = httpClient.safeRequest<Space> {
+        return httpClient.safeRequest<Space> {
             url("$baseUrl/spaces/$id")
             method = HttpMethod.Get
-        }
-        
-        if (result is NetworkResult.Success) {
-            val space = result.data
-            queries.insertSpace(space.id, space.name, space.icon)
-            space.rooms.forEach { room ->
-                queries.insertRoom(room.id, space.id, room.name, room.icon)
+        }.also { result ->
+            if (result is NetworkResult.Success) {
+                val space = result.data
+                queries.insertSpace(space.id, space.name, space.icon)
+                space.rooms.forEach { room ->
+                    queries.insertRoom(room.id, space.id, room.name, room.icon)
+                }
             }
         }
-        
-        return result
     }
 
     override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> {
-        val result = httpClient.safeRequest<Space> {
+        return httpClient.safeRequest<Space> {
             url("$baseUrl/spaces")
             method = HttpMethod.Post
             setBody(CreateSpaceRequest(name, icon))
+        }.also { result ->
+            if (result is NetworkResult.Success) {
+                val space = result.data
+                queries.insertSpace(space.id, space.name, space.icon)
+            }
         }
-        
-        if (result is NetworkResult.Success) {
-            val space = result.data
-            queries.insertSpace(space.id, space.name, space.icon)
-        }
-        
-        return result
     }
 
     override suspend fun updateSpace(id: String, name: String, icon: String?): NetworkResult<Space> {
-        val result = httpClient.safeRequest<Space> {
+        return httpClient.safeRequest<Space> {
             url("$baseUrl/spaces/$id")
             method = HttpMethod.Put
             setBody(UpdateSpaceRequest(name, icon))
+        }.also { result ->
+            if (result is NetworkResult.Success) {
+                val space = result.data
+                queries.insertSpace(space.id, space.name, space.icon)
+            }
         }
-        
-        if (result is NetworkResult.Success) {
-            val space = result.data
-            queries.insertSpace(space.id, space.name, space.icon)
-        }
-        
-        return result
     }
 
     override suspend fun deleteSpace(id: String): NetworkResult<Unit> {
-        val result = httpClient.safeRequest<Unit> {
+        return httpClient.safeRequest<Unit> {
             url("$baseUrl/spaces/$id")
             method = HttpMethod.Delete
+        }.also { result ->
+            if (result is NetworkResult.Success) {
+                queries.deleteSpace(id)
+            }
         }
-        
-        if (result is NetworkResult.Success) {
-            queries.deleteSpace(id)
-        }
-        
-        return result
     }
 }

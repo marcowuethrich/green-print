@@ -12,12 +12,32 @@ CREATE TABLE RoomEntity (
     FOREIGN KEY(spaceId) REFERENCES SpaceEntity(id) ON DELETE CASCADE
 );
 
--- Queries
+CREATE TABLE PlantEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    roomId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    species TEXT,
+    potSize TEXT,
+    soilType TEXT,
+    wateringIntervalDays INTEGER NOT NULL,
+    lastWateredDate TEXT,
+    archiveDate TEXT,
+    archiveReason TEXT,
+    x REAL NOT NULL DEFAULT 0.0,
+    y REAL NOT NULL DEFAULT 0.0,
+    FOREIGN KEY(roomId) REFERENCES RoomEntity(id) ON DELETE CASCADE
+);
+
+CREATE TABLE WateringEventEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    plantId TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    FOREIGN KEY(plantId) REFERENCES PlantEntity(id) ON DELETE CASCADE
+);
+
+-- Space Queries
 insertSpace:
 INSERT OR REPLACE INTO SpaceEntity(id, name, icon) VALUES (?, ?, ?);
-
-insertRoom:
-INSERT OR REPLACE INTO RoomEntity(id, spaceId, name, icon) VALUES (?, ?, ?, ?);
 
 selectAllSpaces:
 SELECT * FROM SpaceEntity;
@@ -25,20 +45,56 @@ SELECT * FROM SpaceEntity;
 selectSpaceById:
 SELECT * FROM SpaceEntity WHERE id = ?;
 
+deleteSpace:
+DELETE FROM SpaceEntity WHERE id = ?;
+
+deleteAllSpaces:
+DELETE FROM SpaceEntity;
+
+-- Room Queries
+insertRoom:
+INSERT OR REPLACE INTO RoomEntity(id, spaceId, name, icon) VALUES (?, ?, ?, ?);
+
 selectAllRooms:
 SELECT * FROM RoomEntity;
 
 selectRoomsBySpaceId:
 SELECT * FROM RoomEntity WHERE spaceId = ?;
 
-deleteSpace:
-DELETE FROM SpaceEntity WHERE id = ?;
-
 deleteRoom:
 DELETE FROM RoomEntity WHERE id = ?;
 
-deleteAllSpaces:
-DELETE FROM SpaceEntity;
-
 deleteAllRooms:
 DELETE FROM RoomEntity;
+
+-- Plant Queries
+insertPlant:
+INSERT OR REPLACE INTO PlantEntity(
+    id, roomId, name, species, potSize, soilType, 
+    wateringIntervalDays, lastWateredDate, archiveDate, archiveReason, x, y
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAllPlants:
+SELECT * FROM PlantEntity;
+
+selectPlantsByRoomId:
+SELECT * FROM PlantEntity WHERE roomId = ?;
+
+selectPlantById:
+SELECT * FROM PlantEntity WHERE id = ?;
+
+deletePlant:
+DELETE FROM PlantEntity WHERE id = ?;
+
+deleteAllPlants:
+DELETE FROM PlantEntity;
+
+-- Watering Event Queries
+insertWateringEvent:
+INSERT OR REPLACE INTO WateringEventEntity(id, plantId, timestamp) VALUES (?, ?, ?);
+
+selectWateringEventsByPlantId:
+SELECT * FROM WateringEventEntity WHERE plantId = ? ORDER BY timestamp DESC;
+
+deleteAllWateringEvents:
+DELETE FROM WateringEventEntity;
