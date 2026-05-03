@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -40,6 +41,7 @@ import greenprint.composeapp.generated.resources.space_no_selection
 import greenprint.composeapp.generated.resources.space_rooms_section_title
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun SpaceLoadingContent(modifier: Modifier = Modifier) {
@@ -71,7 +73,13 @@ fun SpaceDetailContent(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
+    // Auto-focus the "Add Room" button when the space is empty
     if (state.space.rooms.isEmpty()) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(100.milliseconds)
+            focusRequester.requestFocus()
+        }
+        
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

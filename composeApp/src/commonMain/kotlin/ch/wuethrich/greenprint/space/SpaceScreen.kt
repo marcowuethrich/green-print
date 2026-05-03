@@ -85,13 +85,6 @@ class SpaceScreen : Screen {
             visible = true
         }
 
-        // Request focus when content becomes available
-        LaunchedEffect(uiState) {
-            if (uiState is SpaceUiState.HasSpace) {
-                mainFocusRequester.requestFocus()
-            }
-        }
-
         // Handle one-time effects (like validation errors)
         LaunchedEffect(Unit) {
             viewModel.uiEffect.collect { effect ->

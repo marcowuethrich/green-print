@@ -76,6 +76,7 @@ import greenprint.composeapp.generated.resources.space_section_label
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Duration.Companion.milliseconds
 
 class WelcomeScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -111,7 +112,7 @@ class WelcomeScreen : Screen {
         // Handle auto-focus when visible and not in modal
         LaunchedEffect(visible, showCreateModal, uiState) {
             if (visible && !showCreateModal && uiState !is SpaceUiState.Loading) {
-                kotlinx.coroutines.yield()
+                kotlinx.coroutines.delay(100.milliseconds)
                 welcomeFocusRequester.requestFocus()
             }
         }

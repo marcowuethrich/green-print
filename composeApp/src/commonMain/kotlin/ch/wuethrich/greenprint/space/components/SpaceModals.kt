@@ -44,6 +44,7 @@ import greenprint.composeapp.generated.resources.space_delete_dialog_title
 import greenprint.composeapp.generated.resources.space_name_hint
 import greenprint.composeapp.generated.resources.space_rename_dialog_title
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun CreateRoomModal(
@@ -57,7 +58,7 @@ fun CreateRoomModal(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.yield()
+        kotlinx.coroutines.delay(100.milliseconds)
         focusRequester.requestFocus()
     }
 
@@ -154,7 +155,7 @@ fun RenameRoomDialog(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.yield()
+        kotlinx.coroutines.delay(100.milliseconds)
         focusRequester.requestFocus()
     }
 
@@ -226,7 +227,7 @@ fun DeleteRoomDialog(
     val cancelFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.yield()
+        kotlinx.coroutines.delay(100.milliseconds)
         cancelFocusRequester.requestFocus()
     }
 
@@ -276,7 +277,7 @@ fun RenameSpaceDialog(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.yield()
+        kotlinx.coroutines.delay(100.milliseconds)
         focusRequester.requestFocus()
     }
 
@@ -347,7 +348,7 @@ fun DeleteSpaceDialog(
     val cancelFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.yield()
+        kotlinx.coroutines.delay(100.milliseconds)
         cancelFocusRequester.requestFocus()
     }
 

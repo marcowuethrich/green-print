@@ -32,7 +32,7 @@ val networkModule = module {
                 json(Json { ignoreUnknownKeys = true })
             }
             install(Logging) {
-                level = LogLevel.HEADERS
+                level = LogLevel.NONE
             }
             install(DefaultRequest) {
                 contentType(ContentType.Application.Json)
