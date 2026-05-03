@@ -38,5 +38,5 @@
     <string name="room_icon_picker_label">Choose an icon (optional)</string>
     <string name="room_rename_dialog_title">Rename Room</string>
     <string name="room_delete_dialog_title">Delete room?</string>
-    <string name="room_delete_dialog_message">Are you sure you want to delete \'%s\'?</string>
+    <string name="room_delete_dialog_message">Are you sure you want to delete '%s'?</string>
 </resources>

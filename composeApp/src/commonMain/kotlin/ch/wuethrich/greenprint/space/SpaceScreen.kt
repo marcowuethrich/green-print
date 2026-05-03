@@ -276,7 +276,7 @@ class SpaceScreen : Screen {
             }
             is SpaceModal.DeleteRoom -> {
                 DeleteRoomDialog(
-                    roomName = modal.room.name,
+                    room = modal.room,
                     onConfirm = {
                         viewModel.deleteRoom(modal.room.id)
                         activeModal = SpaceModal.None

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.ui.IconPicker
 import ch.wuethrich.greenprint.ui.IconRegistry
 import greenprint.composeapp.generated.resources.Res
@@ -220,7 +221,7 @@ fun RenameRoomDialog(
 
 @Composable
 fun DeleteRoomDialog(
-    roomName: String,
+    room: Room,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -235,7 +236,7 @@ fun DeleteRoomDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
         title = { Text(stringResource(Res.string.room_delete_dialog_title), fontWeight = FontWeight.Bold) },
-        text = { Text(stringResource(Res.string.room_delete_dialog_message, roomName)) },
+        text = { Text("Are you sure you want to delete '${room.name}'?") },
         confirmButton = {
             Button(
                 onClick = onConfirm,
