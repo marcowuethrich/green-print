@@ -22,15 +22,18 @@ class DevBearerAuthMechanism : HttpAuthenticationMechanism {
         context: RoutingContext,
         identityProviderManager: IdentityProviderManager,
     ): Uni<SecurityIdentity> {
-        val token = context.request().getHeader("Authorization")
-            ?.takeIf { it.startsWith("Bearer ") }
-            ?.removePrefix("Bearer ")
+        val authHeader = context.request().getHeader("Authorization")
+        
+        val token = authHeader
+            ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.substring(7)
             ?: return Uni.createFrom().optional(Optional.empty())
 
         return Uni.createFrom().item(
             QuarkusSecurityIdentity.builder()
                 .setPrincipal { token }
                 .setAnonymous(false)
+                .addRole("user")
                 .build()
         )
     }

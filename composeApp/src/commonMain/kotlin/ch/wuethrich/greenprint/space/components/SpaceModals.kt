@@ -57,6 +57,7 @@ fun CreateRoomModal(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.yield()
         focusRequester.requestFocus()
     }
 
@@ -153,6 +154,7 @@ fun RenameRoomDialog(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.yield()
         focusRequester.requestFocus()
     }
 
@@ -224,6 +226,7 @@ fun DeleteRoomDialog(
     val cancelFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.yield()
         cancelFocusRequester.requestFocus()
     }
 
@@ -273,6 +276,7 @@ fun RenameSpaceDialog(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.yield()
         focusRequester.requestFocus()
     }
 
@@ -343,6 +347,7 @@ fun DeleteSpaceDialog(
     val cancelFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.yield()
         cancelFocusRequester.requestFocus()
     }
 

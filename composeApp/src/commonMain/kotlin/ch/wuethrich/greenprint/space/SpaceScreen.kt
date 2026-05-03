@@ -83,7 +83,13 @@ class SpaceScreen : Screen {
 
         LaunchedEffect(Unit) {
             visible = true
-            mainFocusRequester.requestFocus()
+        }
+
+        // Request focus when content becomes available
+        LaunchedEffect(uiState) {
+            if (uiState is SpaceUiState.HasSpace) {
+                mainFocusRequester.requestFocus()
+            }
         }
 
         // Handle one-time effects (like validation errors)

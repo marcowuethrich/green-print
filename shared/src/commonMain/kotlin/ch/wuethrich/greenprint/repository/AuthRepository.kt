@@ -17,12 +17,11 @@ interface AuthRepository {
  * Returns a mock token to satisfy interceptors without a real OIDC flow.
  */
 class NoOpAuthRepository : AuthRepository {
-    private val _sessionToken = MutableStateFlow<String?>(null)
+    private val _sessionToken = MutableStateFlow<String?>("mock_token_for_portfolio")
     override val sessionToken: StateFlow<String?> = _sessionToken.asStateFlow()
 
     override suspend fun login() {
-        // Simulating a successful login
-        _sessionToken.value = "mock_token_for_portfolio"
+        // Already logged in by default for NoOp
     }
 
     override suspend fun logout() {

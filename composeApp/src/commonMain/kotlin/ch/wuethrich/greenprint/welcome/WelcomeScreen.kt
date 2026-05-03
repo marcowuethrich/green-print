@@ -111,6 +111,7 @@ class WelcomeScreen : Screen {
         // Handle auto-focus when visible and not in modal
         LaunchedEffect(visible, showCreateModal, uiState) {
             if (visible && !showCreateModal && uiState !is SpaceUiState.Loading) {
+                kotlinx.coroutines.yield()
                 welcomeFocusRequester.requestFocus()
             }
         }
@@ -367,6 +368,7 @@ private fun CreateSpaceModal(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.yield()
         focusRequester.requestFocus()
     }
 
