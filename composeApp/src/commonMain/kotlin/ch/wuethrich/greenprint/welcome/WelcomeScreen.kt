@@ -4,7 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,6 +62,7 @@ import ch.wuethrich.greenprint.space.SpaceUiState
 import ch.wuethrich.greenprint.space.SpaceViewModel
 import ch.wuethrich.greenprint.ui.IconPicker
 import ch.wuethrich.greenprint.ui.IconRegistry
+import ch.wuethrich.greenprint.ui.motion.softPress
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
@@ -223,6 +224,8 @@ private fun WelcomeEmptyContent(
     onCreateClick: () -> Unit,
     focusRequester: FocusRequester
 ) {
+    val ctaInteraction = remember { MutableInteractionSource() }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -241,7 +244,7 @@ private fun WelcomeEmptyContent(
                 modifier = Modifier.size(64.dp)
             )
         }
-        
+
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Welcome to GreenPrint",
@@ -259,12 +262,14 @@ private fun WelcomeEmptyContent(
 
         Button(
             onClick = onCreateClick,
-            shape = MaterialTheme.shapes.extraLarge,
+            interactionSource = ctaInteraction,
+            shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .height(56.dp)
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
+                .softPress(ctaInteraction)
         ) {
             Text(
                 text = stringResource(Res.string.space_create_button),
@@ -298,9 +303,11 @@ private fun WelcomePopulatedContent(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
                 .fillMaxWidth()
-                .border(DesignSystem.CardBorder, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
                 .focusRequester(focusRequester),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = DesignSystem.CardElevation,
+                hoveredElevation = DesignSystem.CardElevationHovered,
+            ),
         ) {
             Row(
                 modifier = Modifier.padding(24.dp),

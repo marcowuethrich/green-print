@@ -1,7 +1,6 @@
 package ch.wuethrich.greenprint.space.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,10 +49,11 @@ fun RoomCard(
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = modifier
-            .fillMaxWidth()
-            .border(DesignSystem.CardBorder, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = DesignSystem.CardElevation,
+            hoveredElevation = DesignSystem.CardElevationHovered,
+        ),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
