@@ -1,101 +1,127 @@
 # Feature: Plant & Space Inventory
 
-This document defines the requirements and technical considerations for the first phase of the GreenPrint inventory system.
+This document defines the complete implementation specification for the GreenPrint inventory system. It serves as the single source of truth for engineering, design, and QA to build a professional, enterprise-grade houseplant management experience.
 
-## 1. Welcome Screen
-The initial entry point of the application.
+---
+
+## 1. Executive Summary & Scope
+
+The Inventory System is the core of GreenPrint, managing the lifecycle of living spaces, rooms, and plants. This specification transitions the initial MVP concepts into a robust, sync-capable, and observable architecture.
+
+### Primary Objectives
+- **Data Integrity**: Zero-loss synchronization between KMP clients and the PostgreSQL backend.
+- **Offline Resilience**: Full read/write capability while offline with background synchronization.
+- **Observability**: Comprehensive tracing of watering history and system performance.
+- **Accessibility**: Compliance with WCAG 2.1 AA standards for all inventory interactions.
+
+---
+
+## 2. Core Domain Model
+
+The system follows a strict hierarchy defined in ADR-007.
+
+| Entity | Primary Keys | Key Attributes | Relationships |
+| :--- | :--- | :--- | :--- |
+| **Space** | UUID | `name`, `iconId`, `ownerId` | Has many Rooms |
+| **Room** | UUID | `name`, `iconId`, `spaceId` | Belongs to Space, Has many Plants |
+| **Plant** | UUID | `name`, `species`, `wateringIntervalDays`, `photoUrl` | Belongs to Room, Has many WateringEvents |
+| **WateringEvent** | UUID | `timestamp`, `plantId`, `source` | Belongs to Plant |
+
+### Data Constraints & Validation
+- **Names**: Trimmed, non-empty, 1–128 characters.
+- **Intervals**: Integer, 1–365 days (clamped).
+- **Photos**: Max 5MB raw; client-side resize to 1024px (≤ 500KB) for upload.
+- **Uniqueness**: Space names are unique per `ownerId`. Room names are unique per `spaceId`.
+
+---
+
+## 3. Authentication & Onboarding
 
 ### User Stories
-- As a user, I want to see a welcoming screen with the name of the app (**GreenPrint**) when I open it.
-- As a user, I want to see my existing living space(s) listed clearly on this screen.
-- As a user, I want a clear call-to-action to "Create your first living space" if I don't have one yet.
+- As a user, I want to be automatically logged in via OIDC so I can access my inventory securely.
+- As a user, I want my local cache cleared on logout to prevent data leakage.
 
-### Flow & Restrictions (Frontend)
-- **First Impression**: The screen serves as the launchpad for the user's plant management journey.
-- **Empty State**: If no living space exists, a prominent "Create your first living space" button is shown.
-- **Populated State**: If a living space exists, it is displayed in a list. The "Create" button is hidden/disabled due to the single-space restriction.
-
-## 2. Living Space Management
-Users can define where their plants live. 
-
-### User Stories
-- As a user, I want to create a profile for my living space (e.g., "My Apartment").
-- As a user, I want to optionally choose an icon for my living space from a predefined list (e.g., House, Apartment, Office).
-- As a user, I want to rename my living space if I move or change its name.
-- As a user, I want to change or remove the custom icon for my space at any time.
-- As a user, I want to enter a living space from the Welcome Screen to manage its rooms and plants.
-- As a user, I want to leave a living space to return to the Welcome Screen.
-- As a user, I want to add rooms to my space (e.g., "Living Room", "Balcony").
-- As a user, I want to optionally choose an icon for each room (e.g., Sofa for Living Room, Bed for Bedroom).
-- As a user, I want to rename or delete rooms if my layout changes.
-
-### Flow & Restrictions (Frontend)
-- **Single Space Limit**: Initially, the user can only create **one** living space. This restriction is enforced in the frontend (the "Create" button is hidden/disabled on the Welcome Screen if a space exists).
-- **Icon Selection**: 
-    - During creation, the user can skip icon selection.
-    - If skipped, the backend will assign a default icon based on the entity type (Space or Room).
-    - The icon picker should show a categorized list (Space icons vs Room icons).
-- **Auto-Entry**: After creating a living space, the user is automatically "entered" into that space and navigated to the list of rooms within it.
-- **Navigation**: 
-    - Leaving a space returns the user to the Welcome Screen (list of existing living spaces).
-    - Since only one space is currently allowed, the user will see their single space but cannot create a second one.
-- **Settings Menu**: The "Leave" and "Delete" actions for a living space must be tucked away behind a **Settings** menu within the space view to prevent accidental triggers.
+### Flows & Restrictions
+- **Cold Start**: Direct-to-Login if no valid session token.
+- **Automatic Login**: If a valid/refreshable token exists, navigate directly to the Welcome Screen.
+- **Session Expiry**: Intercept 401 errors; redirect to Login with an informational snackbar.
+- **Logout**: Clears local SQLDelight cache and secure token storage.
 
 ### Technical Notes
-- **Entities**: 
-    - `Space` (UUID, Name, Icon: String?).
-    - `Room` (UUID, Name, Icon: String?).
-- **Icon Library**:
-    - Icons are hardcoded in the frontend and referenced by a unique string ID (e.g., `house_24`, `bedroom_24`).
-    - The backend stores this ID. If `null` is sent during creation, the backend provides a default (e.g., `default_space`, `default_room`).
-- **Validation**: 
-    - **Space Names**: Must be unique for the **same user**. Different users can reuse space names from other users.
-    - **Room Names**: Must be unique within a space. Different users may reuse the same room names in their own spaces.
+- Uses OIDC Authorization Code + PKCE (ADR-001).
+- Tokens stored in platform-specific secure enclaves (Keychain/EncryptedSharedPreferences).
 
-## 3. Plant CRUD
-The core of the app is managing individual plants.
+---
+
+## 4. Space & Room Management
 
 ### User Stories
-- As a user, I want to add a plant by entering its name, species, pot size, and soil type.
-- As a user, I want to assign every plant to exactly one room.
-- As a user, I want to update a plant's details (e.g., when I repot it) or delete it.
+- As a user, I want to create a single space (e.g., "My Apartment") and organize it into rooms (e.g., "Living Room").
+- As a user, I want to choose icons for my space and rooms from a predefined registry.
 
-### Technical Notes
-- **Entity**: `Plant` (UUID, Name, Species, PotSize, SoilType, RoomID).
-- **Pot Size & Soil**: Initially manual text entry; will move to categorized enums/entities in a later phase.
+### Flows & Restrictions
+- **Single Space MVP**: UI restricts to one space; "Create" button hidden if space exists.
+- **Room Deletion**: 
+  - If room contains plants: Dialog prompts to "Move plants" or "Archive plants."
+  - Room is only deleted after its contents are cleared.
+- **Space Deletion**: Two-step confirmation; requires user to type the space name to confirm.
+- **Icon Selection**: Backend assigns defaults if `null` is sent during creation.
 
-## 4. Basic Watering Tracking
-Keeping plants alive through scheduled hydration.
+---
 
-### User Stories
-- As a user, I want to set a manual watering frequency (in days) for each plant.
-- As a user, I want to click a "Watered" button to log a watering event for today.
-- As a user, I want the app to tell me when the next watering is due.
-
-### Technical Notes
-- **Logic**: 
-    - `next_due = last_event_timestamp + (watering_interval * 24h)`.
-- **UI State**: Plants should be sorted by "Urgency" (Overdue > Due > Healthy).
-
-## 5. Watering Barometer
-Visual hydration status at a glance.
+## 5. Plant Management & Care
 
 ### User Stories
-- As a user, I want to see a visual barometer that shows how "thirsty" my plant is.
-- As a user, I want the barometer to decrease automatically as time passes since the last watering.
+- As a user, I want to add a plant with its species, pot size, soil type, and watering interval.
+- As a user, I want to see a visual "Health Barometer" reflecting hydration status.
+- As a user, I want to log a watering event with a single tap.
 
-### Technical Notes
-- **Calculation**: `percentage = (next_due - now) / watering_interval`.
-- **UI**: Color shift from Blue (Full) to Red (Thirsty/Overdue).
+### Flows & Restrictions
+- **Watering Logic**: `nextWateringDate = lastWateringTimestamp + (intervalDays * 24h)`.
+- **Barometer Color Scale**: Blue (100%) → Yellow (30%) → Red (0%/Overdue).
+- **Quick Water**: Tapping the water-drop icon logs an event immediately; shows a 5s "Undo" snackbar.
+- **Photo Workflow**: Native camera/gallery pickers; compressed to ≤ 500KB before upload.
 
-## 6. Archive System
-Handling the "end of life" for plants.
+---
 
-### User Stories
-- As a user, I want to move a plant to the "Archive" when it dies or is given away.
-- As a user, I want to record why the plant was archived.
-- As a user, I want to browse my archived plants in a read-only gallery.
+## 6. Technical Architecture
 
-### Technical Notes
-- **Required Fields**: `Reason` (Died, Gifted, Sold), `ArchiveDate`.
-- **State**: Archived plants are excluded from the "Active" Blueprint and Watering lists.
+### 6.1 State Management (KMP ViewModel)
+- **Pattern**: Unidirectional Data Flow (UDF).
+- **State**: `StateFlow<UiState>` (Loading, Success, Error).
+- **Events**: `Channel<UiEffect>` (Navigation, Snackbars).
+
+### 6.2 Synchronization & Persistence
+- **Write-Through Cache**: Repository writes to SQLDelight first (Offline-First), then syncs to API.
+- **Sync Status**: `S_SYNCED`, `S_PENDING`, `S_ERROR` flags on every entity.
+- **Conflict Strategy**: "Last Write Wins" based on client-side `updatedAt` timestamps.
+
+### 6.3 Observability
+- **Logging**: Structured logging via Kermit.
+- **Analytics**: Segment/Firebase integration for key funnel metrics.
+- **Error Tracking**: Sentry integration for KMP crashes and API failures.
+
+---
+
+## 7. Testing & Quality Assurance
+
+### Testing Strategy
+- **Unit Tests**: Domain logic, Barometer calculations (100% coverage).
+- **Integration Tests**: SQLDelight schema and Repository sync cycles.
+- **UI Tests**: Compose Multiplatform `createComposeRule` for critical paths.
+- **E2E Tests**: Maestro/Appium for full Onboarding and Plant Care flows.
+
+---
+
+## 8. Non-Functional Requirements
+
+- **Performance**: 60fps list scrolling; initial sync < 2s on 4G.
+- **Reliability**: 99.9% uptime for watering tracking; automated retry with backoff.
+- **Accessibility**: 48x48dp touch targets; full keyboard/screen reader support (ADR-013).
+
+---
+
+## 9. Post-MVP Roadmap
+- **AI Vision**: Automatic species/health detection via LLM API.
+- **Batch Actions**: Bulk watering and room transfers.
+- **Environmental Sync**: Integration with smart home sensors.
