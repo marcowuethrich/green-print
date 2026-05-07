@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,13 +20,13 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import ch.wuethrich.greenprint.model.Room
-import ch.wuethrich.greenprint.plant.components.CreatePlantModal
+import ch.wuethrich.greenprint.plant.components.PlantFormModal
 import ch.wuethrich.greenprint.ui.IconRegistry
+import ch.wuethrich.greenprint.ui.components.DeleteConfirmationDialog
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
-import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.ic_add
-import greenprint.composeapp.generated.resources.ic_leaf
+import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 data class PlantScreen(val room: Room) : Screen {
@@ -35,7 +36,11 @@ data class PlantScreen(val room: Room) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel: PlantViewModel = koinViewModel()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        var showCreateModal by remember { mutableStateOf(false) }
+        
+        var showFormModal by remember { mutableStateOf(false) }
+        var editingPlant by remember { mutableStateOf<ch.wuethrich.greenprint.model.Plant?>(null) }
+        var plantToDelete by remember { mutableStateOf<ch.wuethrich.greenprint.model.Plant?>(null) }
+        
         val snackbarHostState = remember { SnackbarHostState() }
         
         LaunchedEffect(viewModel.uiEffect) {
@@ -81,7 +86,10 @@ data class PlantScreen(val room: Room) : Screen {
             snackbarHost = { SnackbarHost(snackbarHostState) },
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = { showCreateModal = true },
+                    onClick = { 
+                        editingPlant = null
+                        showFormModal = true 
+                    },
                     containerColor = MaterialTheme.colorScheme.primary
                 ) {
                     Icon(painter = painterResource(Res.drawable.ic_add), contentDescription = "Add Plant")
@@ -96,7 +104,10 @@ data class PlantScreen(val room: Room) : Screen {
                     is PlantUiState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
                     is PlantUiState.Success -> {
                         if (state.plants.isEmpty()) {
-                            Text("No plants in this room yet.", modifier = Modifier.align(Alignment.Center))
+                            Text(
+                                text = stringResource(Res.string.plant_no_plants),
+                                modifier = Modifier.align(Alignment.Center)
+                            )
                         } else {
                             LazyColumn(
                                 contentPadding = PaddingValues(16.dp),
@@ -104,7 +115,20 @@ data class PlantScreen(val room: Room) : Screen {
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 items(state.plants) { plant ->
-                                    PlantItem(plant, onWaterClick = { viewModel.waterPlant(plant.id) })
+                                    PlantItem(
+                                        plant = plant,
+                                        onWaterClick = { viewModel.waterPlant(plant.id) },
+                                        onEditClick = {
+                                            editingPlant = plant
+                                            showFormModal = true
+                                        },
+                                        onArchiveClick = { reason ->
+                                            viewModel.archivePlant(plant.id, reason)
+                                        },
+                                        onDeleteClick = {
+                                            plantToDelete = plant
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -113,13 +137,35 @@ data class PlantScreen(val room: Room) : Screen {
             }
         }
 
-        if (showCreateModal) {
-            CreatePlantModal(
+        if (showFormModal) {
+            PlantFormModal(
+                plant = editingPlant,
                 onConfirm = { name, species, interval ->
-                    viewModel.createPlant(room.id, name, species, interval)
-                    showCreateModal = false
+                    val plantToEdit = editingPlant
+                    if (plantToEdit == null) {
+                        viewModel.createPlant(room.id, name, species, interval)
+                    } else {
+                        viewModel.updatePlant(plantToEdit.id, name, species, interval)
+                    }
+                    showFormModal = false
+                    editingPlant = null
                 },
-                onDismiss = { showCreateModal = false }
+                onDismiss = { 
+                    showFormModal = false
+                    editingPlant = null
+                }
+            )
+        }
+
+        plantToDelete?.let { plant ->
+            DeleteConfirmationDialog(
+                title = stringResource(Res.string.plant_delete_dialog_title),
+                message = "Are you sure you want to permanently delete '${plant.name}'?",
+                onConfirm = {
+                    viewModel.deletePlant(plant.id)
+                    plantToDelete = null
+                },
+                onDismiss = { plantToDelete = null }
             )
         }
     }
@@ -128,10 +174,14 @@ data class PlantScreen(val room: Room) : Screen {
 @Composable
 fun PlantItem(
     plant: ch.wuethrich.greenprint.model.Plant,
-    onWaterClick: () -> Unit
+    onWaterClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onArchiveClick: (String) -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     val hydration = PlantCareUtils.calculateHydration(plant)
     val color = Color(PlantCareUtils.getBarometerColor(hydration))
+    var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -143,7 +193,9 @@ fun PlantItem(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(plant.name, style = MaterialTheme.typography.titleMedium)
                     plant.species?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (it.isNotBlank()) {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
                 IconButton(onClick = onWaterClick) {
@@ -152,6 +204,49 @@ fun PlantItem(
                         contentDescription = "Water Plant",
                         tint = MaterialTheme.colorScheme.primary
                     )
+                }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Edit") },
+                            onClick = {
+                                showMenu = false
+                                onEditClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.plant_archive_died)) },
+                            onClick = {
+                                showMenu = false
+                                onArchiveClick("DIED")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.plant_archive_gifted)) },
+                            onClick = {
+                                showMenu = false
+                                onArchiveClick("GIFTED")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    text = stringResource(Res.string.plant_delete),
+                                    color = MaterialTheme.colorScheme.error
+                                ) 
+                            },
+                            onClick = {
+                                showMenu = false
+                                onDeleteClick()
+                            }
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))

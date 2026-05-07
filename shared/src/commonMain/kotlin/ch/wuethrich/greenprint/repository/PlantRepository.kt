@@ -3,9 +3,11 @@ package ch.wuethrich.greenprint.repository
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
+import ch.wuethrich.greenprint.model.ArchivePlantRequest
 import ch.wuethrich.greenprint.model.CreatePlantRequest
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.UpdatePlantRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
@@ -21,6 +23,8 @@ import kotlinx.coroutines.coroutineScope
 interface PlantRepository {
     fun observePlants(roomId: String): Flow<NetworkResult<List<Plant>>>
     suspend fun createPlant(roomId: String, request: CreatePlantRequest): NetworkResult<Plant>
+    suspend fun updatePlant(id: String, request: UpdatePlantRequest): NetworkResult<Plant>
+    suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant>
     suspend fun deletePlant(id: String): NetworkResult<Unit>
 }
 
@@ -35,7 +39,10 @@ class PlantRepositoryImpl(
         val dbFlow = queries.selectPlantsByRoomId(roomId)
             .asFlow()
             .mapToList(Dispatchers.Default)
-            .map { entities -> NetworkResult.Success(entities.map { it.toDomain() }) }
+            .map { entities -> 
+                val activePlants = entities.filter { it.archiveDate == null }.map { it.toDomain() }
+                NetworkResult.Success(activePlants)
+            }
 
         // 2. Trigger network fetch in background
         coroutineScope {
@@ -65,6 +72,34 @@ class PlantRepositoryImpl(
     override suspend fun createPlant(roomId: String, request: CreatePlantRequest): NetworkResult<Plant> {
         val result = httpClient.safeRequest<Plant> {
             url("$baseUrl/rooms/$roomId/plants")
+            method = HttpMethod.Post
+            setBody(request)
+        }
+
+        if (result is NetworkResult.Success) {
+            insertPlantIntoDb(result.data)
+        }
+
+        return result
+    }
+
+    override suspend fun updatePlant(id: String, request: UpdatePlantRequest): NetworkResult<Plant> {
+        val result = httpClient.safeRequest<Plant> {
+            url("$baseUrl/plants/$id")
+            method = HttpMethod.Put
+            setBody(request)
+        }
+
+        if (result is NetworkResult.Success) {
+            insertPlantIntoDb(result.data)
+        }
+
+        return result
+    }
+
+    override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> {
+        val result = httpClient.safeRequest<Plant> {
+            url("$baseUrl/plants/$id/archive")
             method = HttpMethod.Post
             setBody(request)
         }

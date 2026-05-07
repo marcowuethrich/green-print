@@ -2,10 +2,12 @@ package ch.wuethrich.greenprint.plant
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ch.wuethrich.greenprint.model.ArchivePlantRequest
 import ch.wuethrich.greenprint.model.CreatePlantRequest
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.UpdatePlantRequest
 import ch.wuethrich.greenprint.repository.PlantRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,6 +77,38 @@ class PlantViewModel(
             when (val result = plantRepository.createPlant(roomId, request)) {
                 is NetworkResult.Success -> {
                     _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant added successfully"))
+                }
+                is NetworkResult.Failure -> {
+                    _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
+                }
+            }
+        }
+    }
+
+    fun updatePlant(id: String, name: String, species: String?, intervalDays: Int) {
+        viewModelScope.launch {
+            val request = UpdatePlantRequest(
+                name = name,
+                species = species,
+                wateringIntervalDays = intervalDays
+            )
+            when (val result = plantRepository.updatePlant(id, request)) {
+                is NetworkResult.Success -> {
+                    _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant updated"))
+                }
+                is NetworkResult.Failure -> {
+                    _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
+                }
+            }
+        }
+    }
+
+    fun archivePlant(id: String, reason: String) {
+        viewModelScope.launch {
+            val request = ArchivePlantRequest(reason = reason)
+            when (val result = plantRepository.archivePlant(id, request)) {
+                is NetworkResult.Success -> {
+                    _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant archived"))
                 }
                 is NetworkResult.Failure -> {
                     _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))

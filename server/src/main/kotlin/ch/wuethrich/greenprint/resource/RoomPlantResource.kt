@@ -35,7 +35,7 @@ class RoomPlantResource {
         val room = RoomEntity.find("id = ?1 and space.user = ?2", roomId, user)
             .firstResult().awaitSuspending()
             ?: return@withTx emptyList<Plant>()
-        PlantEntity.find("room", room).list().awaitSuspending().map { it.toDto() }
+        PlantEntity.find("room = ?1 and archiveDate is null", room).list().awaitSuspending().map { it.toDto() }
     }
 
     @POST

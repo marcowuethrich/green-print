@@ -73,14 +73,21 @@ The system follows a strict hierarchy defined in ADR-007.
 
 ### User Stories
 - As a user, I want to add a plant with its species, pot size, soil type, and watering interval.
+- As a user, I want to edit a plant's details (name, species, interval, photo) to keep my records accurate.
 - As a user, I want to see a visual "Health Barometer" reflecting hydration status.
 - As a user, I want to log a watering event with a single tap.
+- As a user, I want to archive/delete a plant if it is no longer in my collection.
 
 ### Flows & Restrictions
 - **Watering Logic**: `nextWateringDate = lastWateringTimestamp + (intervalDays * 24h)`.
 - **Barometer Color Scale**: Blue (100%) → Yellow (30%) → Red (0%/Overdue).
 - **Quick Water**: Tapping the water-drop icon logs an event immediately; shows a 5s "Undo" snackbar.
 - **Photo Workflow**: Native camera/gallery pickers; compressed to ≤ 500KB before upload.
+- **Editing**: All fields are editable; updates are synced via the "Last Write Wins" strategy.
+- **Archiving (Deletion)**:
+  - Deletion is handled as "Archiving" to preserve history (ADR-009).
+  - User must select a reason: `DIED`, `GIFTED`, or `SOLD`.
+  - Archived plants are moved to a separate "Jungle Graveyard" view (read-only).
 
 ---
 

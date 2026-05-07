@@ -39,4 +39,17 @@
     <string name="room_rename_dialog_title">Rename Room</string>
     <string name="room_delete_dialog_title">Delete room?</string>
     <string name="room_delete_dialog_message">Are you sure you want to delete '%s'?</string>
+
+    <!-- Plant management -->
+    <string name="plant_add_title">Add New Plant</string>
+    <string name="plant_edit_title">Edit Plant</string>
+    <string name="plant_name_label">Plant Name</string>
+    <string name="plant_species_label">Species (Optional)</string>
+    <string name="plant_interval_label">Watering Interval (Days)</string>
+    <string name="plant_archive_died">Archive (Died)</string>
+    <string name="plant_archive_gifted">Archive (Gifted)</string>
+    <string name="plant_delete">Delete</string>
+    <string name="plant_delete_dialog_title">Delete plant?</string>
+    <string name="plant_delete_dialog_message">Are you sure you want to permanently delete this plant?</string>
+    <string name="plant_no_plants">No plants in this room yet.</string>
 </resources>

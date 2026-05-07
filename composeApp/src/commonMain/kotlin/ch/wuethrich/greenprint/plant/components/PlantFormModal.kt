@@ -8,43 +8,48 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.common_cancel
-import greenprint.composeapp.generated.resources.common_save
+import ch.wuethrich.greenprint.model.Plant
+import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun CreatePlantModal(
+fun PlantFormModal(
+    plant: Plant? = null,
     onConfirm: (name: String, species: String?, intervalDays: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var species by remember { mutableStateOf("") }
-    var intervalDays by remember { mutableStateOf("7") }
+    var name by remember { mutableStateOf(plant?.name ?: "") }
+    var species by remember { mutableStateOf(plant?.species ?: "") }
+    var intervalDays by remember { mutableStateOf(plant?.wateringIntervalDays?.toString() ?: "7") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New Plant", fontWeight = FontWeight.Bold) },
+        title = { 
+            Text(
+                text = stringResource(if (plant == null) Res.string.plant_add_title else Res.string.plant_edit_title), 
+                fontWeight = FontWeight.Bold 
+            ) 
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Plant Name") },
+                    label = { Text(stringResource(Res.string.plant_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = species,
                     onValueChange = { species = it },
-                    label = { Text("Species (Optional)") },
+                    label = { Text(stringResource(Res.string.plant_species_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = intervalDays,
                     onValueChange = { if (it.all { char -> char.isDigit() }) intervalDays = it },
-                    label = { Text("Watering Interval (Days)") },
+                    label = { Text(stringResource(Res.string.plant_interval_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()

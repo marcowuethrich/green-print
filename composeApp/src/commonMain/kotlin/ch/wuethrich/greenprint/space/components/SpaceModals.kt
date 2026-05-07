@@ -46,6 +46,7 @@ import greenprint.composeapp.generated.resources.space_name_hint
 import greenprint.composeapp.generated.resources.space_rename_dialog_title
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
+import ch.wuethrich.greenprint.ui.components.DeleteConfirmationDialog
 
 @Composable
 fun CreateRoomModal(
@@ -225,35 +226,11 @@ fun DeleteRoomDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val cancelFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(100.milliseconds)
-        cancelFocusRequester.requestFocus()
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.room_delete_dialog_title), fontWeight = FontWeight.Bold) },
-        text = { Text("Are you sure you want to delete '${room.name}'?") },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Text(stringResource(Res.string.common_delete), fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.focusRequester(cancelFocusRequester)
-            ) {
-                Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        },
+    DeleteConfirmationDialog(
+        title = stringResource(Res.string.room_delete_dialog_title),
+        message = "Are you sure you want to delete '${room.name}'?",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
     )
 }
 
