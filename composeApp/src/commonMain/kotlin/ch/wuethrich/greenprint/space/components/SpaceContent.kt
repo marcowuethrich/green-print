@@ -69,6 +69,7 @@ fun SpaceDetailContent(
     state: SpaceUiState.HasSpace,
     onRenameRoomClick: (Room) -> Unit,
     onDeleteRoomClick: (Room) -> Unit,
+    onRoomClick: (Room) -> Unit,
     onCreateRoomClick: () -> Unit,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
@@ -149,7 +150,8 @@ fun SpaceDetailContent(
                 RoomCard(
                     room = room,
                     onRenameClick = { onRenameRoomClick(room) },
-                    onDeleteClick = { onDeleteRoomClick(room) }
+                    onDeleteClick = { onDeleteRoomClick(room) },
+                    onClick = { onRoomClick(room) }
                 )
             }
         }

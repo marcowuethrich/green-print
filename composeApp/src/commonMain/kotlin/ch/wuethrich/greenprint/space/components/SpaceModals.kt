@@ -343,24 +343,44 @@ fun RenameSpaceDialog(
 
 @Composable
 fun DeleteSpaceDialog(
+    spaceName: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val cancelFocusRequester = remember { FocusRequester() }
+    var confirmationText by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(100.milliseconds)
-        cancelFocusRequester.requestFocus()
+        focusRequester.requestFocus()
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
         title = { Text(stringResource(Res.string.space_delete_dialog_title), fontWeight = FontWeight.Bold) },
-        text = { Text(stringResource(Res.string.space_delete_dialog_message)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(Res.string.space_delete_dialog_message))
+                Text(
+                    text = "Please type '$spaceName' to confirm deletion:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = confirmationText,
+                    onValueChange = { confirmationText = it },
+                    placeholder = { Text(spaceName) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
+        },
         confirmButton = {
             Button(
                 onClick = onConfirm,
+                enabled = confirmationText == spaceName,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -368,10 +388,7 @@ fun DeleteSpaceDialog(
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.focusRequester(cancelFocusRequester)
-            ) {
+            TextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },

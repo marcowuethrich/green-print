@@ -2,18 +2,14 @@ package ch.wuethrich.greenprint.space
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ch.wuethrich.greenprint.db.GreenPrintDbQueries
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Space
-import ch.wuethrich.greenprint.repository.AuthRepository
+import ch.wuethrich.greenprint.repository.PlantRepository
 import ch.wuethrich.greenprint.repository.RoomRepository
 import ch.wuethrich.greenprint.repository.SpaceRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 sealed interface SpaceUiState {
@@ -25,11 +21,14 @@ sealed interface SpaceUiState {
 
 sealed interface SpaceUiEffect {
     data class ValidationError(val message: String, val targetId: String? = null) : SpaceUiEffect
+    data class RoomHasPlants(val roomId: String, val roomName: String) : SpaceUiEffect
 }
 
 class SpaceViewModel(
     private val spaceRepository: SpaceRepository,
     private val roomRepository: RoomRepository,
+    private val plantRepository: PlantRepository,
+    private val queries: GreenPrintDbQueries
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SpaceUiState>(SpaceUiState.Loading)
@@ -38,14 +37,18 @@ class SpaceViewModel(
     private val _uiEffect = MutableSharedFlow<SpaceUiEffect>()
     val uiEffect: SharedFlow<SpaceUiEffect> = _uiEffect.asSharedFlow()
 
+    private val _refreshSignal = MutableStateFlow(0)
+
     init {
         viewModelScope.launch {
-            loadSpace()
+            _refreshSignal.collectLatest {
+                loadSpaceInternal()
+            }
         }
     }
 
     fun retry() {
-        viewModelScope.launch { loadSpace() }
+        _refreshSignal.value++
     }
 
     fun createSpace(name: String, icon: String? = null) {
@@ -53,7 +56,9 @@ class SpaceViewModel(
         if (trimmed.isBlank()) return
         viewModelScope.launch {
             when (val result = spaceRepository.createSpace(trimmed, icon)) {
-                is NetworkResult.Success -> _uiState.value = SpaceUiState.HasSpace(result.data)
+                is NetworkResult.Success -> {
+                    _uiState.value = SpaceUiState.HasSpace(result.data)
+                }
                 is NetworkResult.Failure -> handleFormError(result.error, "A space with this name already exists.", targetId = null)
             }
         }
@@ -85,7 +90,9 @@ class SpaceViewModel(
         if (trimmed.isBlank()) return
         viewModelScope.launch {
             when (val result = roomRepository.createRoom(spaceId, trimmed, icon)) {
-                is NetworkResult.Success -> loadSpace(silent = true)
+                is NetworkResult.Success -> {
+                    _refreshSignal.value++
+                }
                 is NetworkResult.Failure -> handleFormError(result.error, "A room with this name already exists in this space.", targetId = "new_room")
             }
         }
@@ -96,16 +103,25 @@ class SpaceViewModel(
         if (trimmed.isBlank()) return
         viewModelScope.launch {
             when (val result = roomRepository.updateRoom(id, trimmed, icon)) {
-                is NetworkResult.Success -> loadSpace(silent = true)
+                is NetworkResult.Success -> _refreshSignal.value++
                 is NetworkResult.Failure -> handleFormError(result.error, "A room with this name already exists in this space.", targetId = id)
             }
         }
     }
 
-    fun deleteRoom(id: String) {
+    fun deleteRoom(id: String, force: Boolean = false) {
         viewModelScope.launch {
+            if (!force) {
+                val hasPlants = queries.selectPlantsByRoomId(id).executeAsList().isNotEmpty()
+                if (hasPlants) {
+                    val room = queries.selectAllRooms().executeAsList().find { it.id == id }
+                    _uiEffect.emit(SpaceUiEffect.RoomHasPlants(id, room?.name ?: ""))
+                    return@launch
+                }
+            }
+            
             when (val result = roomRepository.deleteRoom(id)) {
-                is NetworkResult.Success -> loadSpace(silent = true)
+                is NetworkResult.Success -> _refreshSignal.value++
                 is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toMessage())
             }
         }
@@ -122,8 +138,8 @@ class SpaceViewModel(
         }
     }
 
-    private suspend fun loadSpace(silent: Boolean = false) {
-        if (!silent) _uiState.value = SpaceUiState.Loading
+    private suspend fun loadSpaceInternal() {
+        _uiState.value = SpaceUiState.Loading
         spaceRepository.observeSpaces().collect { result ->
             when (result) {
                 is NetworkResult.Success -> {
@@ -132,10 +148,10 @@ class SpaceViewModel(
                         ?: SpaceUiState.Empty
                 }
                 is NetworkResult.Failure -> {
-                    if (!silent && _uiState.value is SpaceUiState.Loading) {
+                    // Always show error if we don't have a space successfully loaded.
+                    if (_uiState.value !is SpaceUiState.HasSpace) {
                         _uiState.value = SpaceUiState.Error(result.error.toMessage())
                     }
-                    // For background updates, we might just log or show a toast/snackbar via effect
                 }
             }
         }

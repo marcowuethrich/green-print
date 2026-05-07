@@ -3,6 +3,8 @@ package ch.wuethrich.greenprint.di
 import ch.wuethrich.greenprint.BASE_URL
 import ch.wuethrich.greenprint.repository.AuthRepository
 import ch.wuethrich.greenprint.repository.NoOpAuthRepository
+import ch.wuethrich.greenprint.repository.PlantRepository
+import ch.wuethrich.greenprint.repository.PlantRepositoryImpl
 import ch.wuethrich.greenprint.repository.RoomRepository
 import ch.wuethrich.greenprint.repository.RoomRepositoryImpl
 import ch.wuethrich.greenprint.repository.SpaceRepository
@@ -54,4 +56,5 @@ val networkModule = module {
     }
     single<SpaceRepository> { SpaceRepositoryImpl(get(), BASE_URL, get()) }
     single<RoomRepository> { RoomRepositoryImpl(get(), BASE_URL, get()) }
+    single<PlantRepository> { PlantRepositoryImpl(get(), BASE_URL, get()) }
 }

@@ -1,7 +1,9 @@
 CREATE TABLE SpaceEntity (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
-    icon TEXT
+    icon TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'S_SYNCED',
+    updatedAt INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE RoomEntity (
@@ -9,6 +11,8 @@ CREATE TABLE RoomEntity (
     spaceId TEXT NOT NULL,
     name TEXT NOT NULL,
     icon TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'S_SYNCED',
+    updatedAt INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(spaceId) REFERENCES SpaceEntity(id) ON DELETE CASCADE
 );
 
@@ -21,10 +25,13 @@ CREATE TABLE PlantEntity (
     soilType TEXT,
     wateringIntervalDays INTEGER NOT NULL,
     lastWateredDate TEXT,
+    photoUrl TEXT,
     archiveDate TEXT,
     archiveReason TEXT,
     x REAL NOT NULL DEFAULT 0.0,
     y REAL NOT NULL DEFAULT 0.0,
+    syncStatus TEXT NOT NULL DEFAULT 'S_SYNCED',
+    updatedAt INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(roomId) REFERENCES RoomEntity(id) ON DELETE CASCADE
 );
 
@@ -32,12 +39,14 @@ CREATE TABLE WateringEventEntity (
     id TEXT NOT NULL PRIMARY KEY,
     plantId TEXT NOT NULL,
     timestamp TEXT NOT NULL,
+    syncStatus TEXT NOT NULL DEFAULT 'S_SYNCED',
+    updatedAt INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(plantId) REFERENCES PlantEntity(id) ON DELETE CASCADE
 );
 
 -- Space Queries
 insertSpace:
-INSERT OR REPLACE INTO SpaceEntity(id, name, icon) VALUES (?, ?, ?);
+INSERT OR REPLACE INTO SpaceEntity(id, name, icon, syncStatus, updatedAt) VALUES (?, ?, ?, ?, ?);
 
 selectAllSpaces:
 SELECT * FROM SpaceEntity;
@@ -53,7 +62,7 @@ DELETE FROM SpaceEntity;
 
 -- Room Queries
 insertRoom:
-INSERT OR REPLACE INTO RoomEntity(id, spaceId, name, icon) VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO RoomEntity(id, spaceId, name, icon, syncStatus, updatedAt) VALUES (?, ?, ?, ?, ?, ?);
 
 selectAllRooms:
 SELECT * FROM RoomEntity;
@@ -71,8 +80,8 @@ DELETE FROM RoomEntity;
 insertPlant:
 INSERT OR REPLACE INTO PlantEntity(
     id, roomId, name, species, potSize, soilType, 
-    wateringIntervalDays, lastWateredDate, archiveDate, archiveReason, x, y
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    wateringIntervalDays, lastWateredDate, photoUrl, archiveDate, archiveReason, x, y, syncStatus, updatedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllPlants:
 SELECT * FROM PlantEntity;
@@ -91,7 +100,7 @@ DELETE FROM PlantEntity;
 
 -- Watering Event Queries
 insertWateringEvent:
-INSERT OR REPLACE INTO WateringEventEntity(id, plantId, timestamp) VALUES (?, ?, ?);
+INSERT OR REPLACE INTO WateringEventEntity(id, plantId, timestamp, syncStatus, updatedAt) VALUES (?, ?, ?, ?, ?);
 
 selectWateringEventsByPlantId:
 SELECT * FROM WateringEventEntity WHERE plantId = ? ORDER BY timestamp DESC;

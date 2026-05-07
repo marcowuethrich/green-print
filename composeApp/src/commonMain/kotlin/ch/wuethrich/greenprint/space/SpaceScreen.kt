@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +43,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import ch.wuethrich.greenprint.model.Room
+import ch.wuethrich.greenprint.plant.PlantScreen
 import ch.wuethrich.greenprint.space.components.CreateRoomModal
 import ch.wuethrich.greenprint.space.components.DeleteRoomDialog
 import ch.wuethrich.greenprint.space.components.DeleteSpaceDialog
@@ -65,6 +68,7 @@ sealed interface SpaceModal {
     data class RenameRoom(val room: Room) : SpaceModal
     data object DeleteSpace : SpaceModal
     data class DeleteRoom(val room: Room) : SpaceModal
+    data class RoomNotEmpty(val roomId: String, val roomName: String) : SpaceModal
 }
 
 class SpaceScreen : Screen {
@@ -92,6 +96,9 @@ class SpaceScreen : Screen {
                     is SpaceUiEffect.ValidationError -> {
                         validationError = effect.message
                         isSaving = false
+                    }
+                    is SpaceUiEffect.RoomHasPlants -> {
+                        activeModal = SpaceModal.RoomNotEmpty(effect.roomId, effect.roomName)
                     }
                 }
             }
@@ -196,6 +203,9 @@ class SpaceScreen : Screen {
                                     activeModal = SpaceModal.RenameRoom(it) 
                                 },
                                 onDeleteRoomClick = { activeModal = SpaceModal.DeleteRoom(it) },
+                                onRoomClick = { room ->
+                                    navigator.push(PlantScreen(room))
+                                },
                                 onCreateRoomClick = {
                                     validationError = null
                                     activeModal = SpaceModal.CreateRoom
@@ -265,9 +275,11 @@ class SpaceScreen : Screen {
             }
             SpaceModal.DeleteSpace -> {
                 if (uiState is SpaceUiState.HasSpace) {
+                    val space = (uiState as SpaceUiState.HasSpace).space
                     DeleteSpaceDialog(
+                        spaceName = space.name,
                         onConfirm = {
-                            viewModel.deleteSpace((uiState as SpaceUiState.HasSpace).space.id)
+                            viewModel.deleteSpace(space.id)
                             navigator.pop()
                         },
                         onDismiss = { activeModal = SpaceModal.None }
@@ -282,6 +294,18 @@ class SpaceScreen : Screen {
                         activeModal = SpaceModal.None
                     },
                     onDismiss = { activeModal = SpaceModal.None }
+                )
+            }
+            is SpaceModal.RoomNotEmpty -> {
+                AlertDialog(
+                    onDismissRequest = { activeModal = SpaceModal.None },
+                    title = { Text("Room Not Empty") },
+                    text = { Text("The room '${modal.roomName}' contains plants. Please move or archive them before deleting the room.") },
+                    confirmButton = {
+                        TextButton(onClick = { activeModal = SpaceModal.None }) {
+                            Text("OK")
+                        }
+                    }
                 )
             }
         }

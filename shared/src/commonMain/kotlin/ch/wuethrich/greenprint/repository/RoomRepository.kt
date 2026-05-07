@@ -30,7 +30,7 @@ class RoomRepositoryImpl(
         
         if (result is NetworkResult.Success) {
             val room = result.data
-            queries.insertRoom(room.id, room.spaceId, room.name, room.icon)
+            queries.insertRoom(room.id, room.spaceId, room.name, room.icon, room.syncStatus, room.updatedAt)
         }
         
         return result
@@ -45,7 +45,7 @@ class RoomRepositoryImpl(
         
         if (result is NetworkResult.Success) {
             val room = result.data
-            queries.insertRoom(room.id, room.spaceId, room.name, room.icon)
+            queries.insertRoom(room.id, room.spaceId, room.name, room.icon, room.syncStatus, room.updatedAt)
         }
         
         return result

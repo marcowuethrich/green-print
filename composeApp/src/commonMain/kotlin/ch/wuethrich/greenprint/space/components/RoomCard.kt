@@ -42,11 +42,13 @@ fun RoomCard(
     room: Room,
     onRenameClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
+        onClick = onClick,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = modifier.fillMaxWidth(),

@@ -106,6 +106,9 @@ class WelcomeScreen : Screen {
                         isCreating = false
                         showCreateModal = true
                     }
+                    is SpaceUiEffect.RoomHasPlants -> {
+                        // Not expected here, but must be exhaustive
+                    }
                 }
             }
         }
