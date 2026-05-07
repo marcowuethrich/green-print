@@ -133,6 +133,86 @@ class SpaceResourceTest {
             .body("icon", equalTo("default_space"))
     }
 
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating space with empty name returns 400`() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": ""}""")
+            .`when`().post("/spaces")
+            .then().statusCode(400)
+            .body("code", equalTo("name_blank"))
+            .body("field", equalTo("name"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating space with whitespace-only name returns 400`() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "   "}""")
+            .`when`().post("/spaces")
+            .then().statusCode(400)
+            .body("code", equalTo("name_blank"))
+            .body("field", equalTo("name"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating space with name longer than 128 chars returns 400`() {
+        val tooLong = "a".repeat(129)
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "$tooLong"}""")
+            .`when`().post("/spaces")
+            .then().statusCode(400)
+            .body("code", equalTo("name_too_long"))
+            .body("field", equalTo("name"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `creating space trims whitespace from name`() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "  Trimmed  "}""")
+            .`when`().post("/spaces")
+            .then().statusCode(200)
+            .body("name", equalTo("Trimmed"))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `getting another user's space returns 404`() {
+        val bobsSpaceId = givenSpaceInDb(forUser = "bob", named = "Bobs Apartment")
+
+        given()
+            .`when`().get("/spaces/$bobsSpaceId")
+            .then().statusCode(404)
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `updating another user's space returns 404`() {
+        val bobsSpaceId = givenSpaceInDb(forUser = "bob", named = "Bobs Apartment")
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""{"name": "Hijacked"}""")
+            .`when`().put("/spaces/$bobsSpaceId")
+            .then().statusCode(404)
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `deleting another user's space returns 404`() {
+        val bobsSpaceId = givenSpaceInDb(forUser = "bob", named = "Bobs Apartment")
+
+        given()
+            .`when`().delete("/spaces/$bobsSpaceId")
+            .then().statusCode(404)
+    }
+
     private fun createSpace(name: String, icon: String? = null): String {
         val body = if (icon != null) {
             """{"name": "$name", "icon": "$icon"}"""
@@ -148,7 +228,8 @@ class SpaceResourceTest {
     }
 
     @Suppress("SameParameterValue")
-    private fun givenSpaceInDb(forUser: String, named: String) {
+    private fun givenSpaceInDb(forUser: String, named: String): String {
+        var spaceId = ""
         sf.withTransaction { _ ->
             val user = UserEntity().apply { externalId = forUser }
             user.persist<UserEntity>().flatMap { persistedUser ->
@@ -156,8 +237,9 @@ class SpaceResourceTest {
                     name = named
                     this.user = persistedUser
                 }
-                space.persist<SpaceEntity>()
+                space.persist<SpaceEntity>().invoke { _ -> spaceId = space.id!!.toString() }
             }
         }.await().indefinitely()
+        return spaceId
     }
 }

@@ -112,10 +112,13 @@ class SpaceViewModel(
     }
 
     private suspend fun handleFormError(error: NetworkError, conflictMessage: String, targetId: String?) {
-        if (error is NetworkError.Conflict) {
-            _uiEffect.emit(SpaceUiEffect.ValidationError(conflictMessage, targetId))
-        } else {
-            _uiEffect.emit(SpaceUiEffect.ValidationError(error.toMessage(), targetId))
+        when (error) {
+            is NetworkError.Conflict ->
+                _uiEffect.emit(SpaceUiEffect.ValidationError(conflictMessage, targetId))
+            is NetworkError.Validation ->
+                _uiEffect.emit(SpaceUiEffect.ValidationError(error.toMessage(), error.field ?: targetId))
+            else ->
+                _uiEffect.emit(SpaceUiEffect.ValidationError(error.toMessage(), targetId))
         }
     }
 
@@ -145,6 +148,13 @@ class SpaceViewModel(
         NetworkError.Conflict -> "This item already exists."
         NetworkError.ServerError -> "Server error: Please try again later."
         NetworkError.Connectivity -> "Network error: Please check your connection."
+        is NetworkError.Validation -> validationMessage(code)
         is NetworkError.Unknown -> message ?: "An unexpected error occurred."
+    }
+
+    private fun validationMessage(code: String): String = when (code) {
+        "name_blank" -> "Name cannot be empty."
+        "name_too_long" -> "Name is too long (maximum 128 characters)."
+        else -> "Please check the entered values."
     }
 }

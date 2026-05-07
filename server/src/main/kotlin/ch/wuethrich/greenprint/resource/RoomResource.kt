@@ -1,7 +1,6 @@
 package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.auth.UserService
-import ch.wuethrich.greenprint.auth.requireOwner
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.toDto
@@ -36,13 +35,14 @@ class RoomResource {
         @PathParam("spaceId") spaceId: UUID,
         request: CreateRoomRequest
     ): Response = withTx {
-        val space = SpaceEntity.findById(spaceId).awaitSuspending()
+        val name = validateName(request.name)
+        val user = userService.currentUser()
+        val space = SpaceEntity.find("id = ?1 and user = ?2", spaceId, user)
+            .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-
-        requireOwner(space.user, userService.currentUser())
         val room = RoomEntity().apply {
-            name = request.name
-            icon = request.icon ?: "default_room"
+            this.name = name
+            this.icon = request.icon ?: "default_room"
             this.space = space
         }
         room.persist<RoomEntity>().awaitSuspending()
@@ -55,11 +55,12 @@ class RoomResource {
         @PathParam("id") id: UUID,
         request: UpdateRoomRequest
     ): Response = withTx {
-        val room = RoomEntity.findById(id).awaitSuspending()
+        val name = validateName(request.name)
+        val user = userService.currentUser()
+        val room = RoomEntity.find("id = ?1 and space.user = ?2", id, user)
+            .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-
-        requireOwner(room.space.user, userService.currentUser())
-        room.name = request.name
+        room.name = name
         room.icon = request.icon ?: "default_room"
         Response.ok(room.toDto()).build()
     }
@@ -69,10 +70,10 @@ class RoomResource {
     suspend fun deleteRoom(
         @PathParam("id") id: UUID
     ): Response = withTx {
-        val room = RoomEntity.findById(id).awaitSuspending()
+        val user = userService.currentUser()
+        val room = RoomEntity.find("id = ?1 and space.user = ?2", id, user)
+            .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-
-        requireOwner(room.space.user, userService.currentUser())
         room.deleteDirectly(room.id)
         Response.noContent().build()
     }

@@ -12,5 +12,6 @@ sealed interface NetworkError {
     data object Conflict : NetworkError
     data object ServerError : NetworkError
     data object Connectivity : NetworkError
+    data class Validation(val code: String, val field: String? = null) : NetworkError
     data class Unknown(val message: String?) : NetworkError
 }

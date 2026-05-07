@@ -1,7 +1,6 @@
 package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.auth.UserService
-import ch.wuethrich.greenprint.auth.requireOwner
 import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.toDto
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
@@ -41,20 +40,21 @@ class SpaceResource {
     @GET
     @Path("/spaces/{id}")
     suspend fun getSpace(@PathParam("id") id: UUID): Response = withTx {
-        val entity = SpaceEntity.findById(id).awaitSuspending()
+        val user = userService.currentUser()
+        val entity = SpaceEntity.find("id = ?1 and user = ?2", id, user)
+            .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-
-        requireOwner(entity.user, userService.currentUser())
         Response.ok(entity.toDto()).build()
     }
 
     @POST
     @Path("/spaces")
     suspend fun createSpace(request: CreateSpaceRequest): Space = withTx {
+        val name = validateName(request.name)
         val user = userService.currentUser()
         val entity = SpaceEntity().apply {
-            name = request.name
-            icon = request.icon ?: "default_space"
+            this.name = name
+            this.icon = request.icon ?: "default_space"
             this.user = user
         }
         entity.persist<SpaceEntity>().awaitSuspending().toDto()
@@ -63,11 +63,12 @@ class SpaceResource {
     @PUT
     @Path("/spaces/{id}")
     suspend fun updateSpace(@PathParam("id") id: UUID, request: UpdateSpaceRequest): Response = withTx {
-        val entity = SpaceEntity.findById(id).awaitSuspending()
+        val name = validateName(request.name)
+        val user = userService.currentUser()
+        val entity = SpaceEntity.find("id = ?1 and user = ?2", id, user)
+            .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-
-        requireOwner(entity.user, userService.currentUser())
-        entity.name = request.name
+        entity.name = name
         entity.icon = request.icon ?: "default_space"
         Response.ok(entity.toDto()).build()
     }
@@ -75,10 +76,10 @@ class SpaceResource {
     @DELETE
     @Path("/spaces/{id}")
     suspend fun deleteSpace(@PathParam("id") id: UUID): Response = withTx {
-        val entity = SpaceEntity.findById(id).awaitSuspending()
+        val user = userService.currentUser()
+        val entity = SpaceEntity.find("id = ?1 and user = ?2", id, user)
+            .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-
-        requireOwner(entity.user, userService.currentUser())
         entity.delete().awaitSuspending()
         Response.noContent().build()
     }

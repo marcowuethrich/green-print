@@ -4,19 +4,18 @@ import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheEntityBase
 import io.smallrye.mutiny.coroutines.asUni
 import io.smallrye.mutiny.coroutines.awaitSuspending
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
-suspend fun <T> withTx(block: suspend () -> T): T =
+suspend fun <T> withTx(block: suspend () -> T): T = coroutineScope {
     Panache.withTransaction {
-        CoroutineScope(Dispatchers.Unconfined).async {
-            block()
-        }.asUni()
+        async(Dispatchers.Unconfined) { block() }.asUni()
     }.awaitSuspending()
+}
 
 /**
  * Performs a direct JPQL delete bypassing the Hibernate session cache,

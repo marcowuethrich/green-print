@@ -1,5 +1,6 @@
 package ch.wuethrich.greenprint.repository
 
+import ch.wuethrich.greenprint.model.ApiError
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import io.ktor.client.*
@@ -22,11 +23,20 @@ suspend inline fun <reified T> HttpClient.safeRequest(
     NetworkResult.Failure(NetworkError.Unknown(e.message))
 }
 
-fun ResponseException.toNetworkError(): NetworkError = when (response.status) {
+suspend fun ResponseException.toNetworkError(): NetworkError = when (response.status) {
     HttpStatusCode.Unauthorized -> NetworkError.Unauthorized
     HttpStatusCode.Forbidden -> NetworkError.Forbidden
     HttpStatusCode.NotFound -> NetworkError.NotFound
     HttpStatusCode.Conflict -> NetworkError.Conflict
+    HttpStatusCode.BadRequest -> parseValidation()
+        ?: NetworkError.Unknown("Status: ${response.status}")
     HttpStatusCode.InternalServerError -> NetworkError.ServerError
     else -> NetworkError.Unknown("Status: ${response.status}")
+}
+
+private suspend fun ResponseException.parseValidation(): NetworkError.Validation? = try {
+    val apiError: ApiError = response.body()
+    NetworkError.Validation(apiError.code, apiError.field)
+} catch (_: Exception) {
+    null
 }

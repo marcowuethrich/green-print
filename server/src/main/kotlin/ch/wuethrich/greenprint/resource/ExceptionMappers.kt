@@ -17,3 +17,9 @@ class PersistenceExceptionMapper : ExceptionMapper<PersistenceException> {
             Response.status(Response.Status.INTERNAL_SERVER_ERROR).build()
     }
 }
+
+@Provider
+class ValidationExceptionMapper : ExceptionMapper<ValidationException> {
+    override fun toResponse(e: ValidationException): Response =
+        Response.status(Response.Status.BAD_REQUEST).entity(e.error).build()
+}
