@@ -211,3 +211,24 @@ The application must be fully navigable and operable via keyboard. Every screen 
 **Consequences:**
 - Developers must use `FocusRequester` and `LaunchedEffect` in every new UI component.
 - Testing must include keyboard-only verification (Tab, Enter, Arrow keys).
+
+---
+
+## ADR-014 — Server Database Migrations: Atlas
+
+**Decision:** Use **[Atlas](https://atlasgo.io)** for versioned database migrations on the server. **Do not** add Flyway or Liquibase.
+
+**Rationale:**
+- Stronger plan/diff/lint workflow than Flyway or Liquibase.
+- Decoupled from the Quarkus runtime — no migration plugin in `server/build.gradle.kts`, no auto-apply on boot.
+- HCL config (`server/atlas.hcl`) keeps env wiring next to the migration directory.
+
+**Layout:**
+- Config: `server/atlas.hcl`
+- Versioned SQL: `server/migrations/` (filename pattern `YYYYMMDDhhmmss_<slug>.sql`)
+- Apply: `atlas migrate apply --env <env>`
+
+**Consequences:**
+- Production schema is owned by Atlas; `quarkus.hibernate-orm.schema-management.strategy=none` in prod.
+- Dev/test profiles still use Hibernate's `update` / `drop-and-create` for fast iteration — keep entity DDL and Atlas migrations in sync (e.g., `gen_random_uuid()` defaults must be expressible by both, or moved off the test path).
+- Schema changes are made by adding a new versioned SQL file in `server/migrations/`, not by editing applied migrations. Re-hash with `atlas migrate hash` if the directory uses integrity tracking.
