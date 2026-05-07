@@ -5,42 +5,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +17,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
@@ -60,20 +27,13 @@ import ch.wuethrich.greenprint.space.SpaceScreen
 import ch.wuethrich.greenprint.space.SpaceUiEffect
 import ch.wuethrich.greenprint.space.SpaceUiState
 import ch.wuethrich.greenprint.space.SpaceViewModel
-import ch.wuethrich.greenprint.ui.IconPicker
 import ch.wuethrich.greenprint.ui.IconRegistry
+import ch.wuethrich.greenprint.ui.components.ErrorScreen
+import ch.wuethrich.greenprint.ui.components.GenericFormModal
+import ch.wuethrich.greenprint.ui.components.LoadingScreen
 import ch.wuethrich.greenprint.ui.motion.softPress
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
-import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.common_cancel
-import greenprint.composeapp.generated.resources.common_retry
-import greenprint.composeapp.generated.resources.common_save
-import greenprint.composeapp.generated.resources.error_generic
-import greenprint.composeapp.generated.resources.ic_leaf
-import greenprint.composeapp.generated.resources.space_create_button
-import greenprint.composeapp.generated.resources.space_create_title
-import greenprint.composeapp.generated.resources.space_name_hint
-import greenprint.composeapp.generated.resources.space_section_label
+import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -144,7 +104,7 @@ class WelcomeScreen : Screen {
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "The World",
+                                text = stringResource(Res.string.app_name),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
@@ -217,9 +177,7 @@ class WelcomeScreen : Screen {
 
 @Composable
 private fun WelcomeLoadingContent() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(strokeWidth = 3.dp, color = MaterialTheme.colorScheme.primary)
-    }
+    LoadingScreen()
 }
 
 @Composable
@@ -250,13 +208,13 @@ private fun WelcomeEmptyContent(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "Welcome to GreenPrint",
+                text = stringResource(Res.string.welcome_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Start your plant journey by creating a space.",
+                text = stringResource(Res.string.welcome_description),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -337,7 +295,7 @@ private fun WelcomePopulatedContent(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Tap to enter",
+                        text = stringResource(Res.string.welcome_tap_to_enter),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -349,22 +307,7 @@ private fun WelcomePopulatedContent(
 
 @Composable
 private fun WelcomeErrorContent(onRetry: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = stringResource(Res.string.error_generic),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error,
-        )
-        Button(
-            onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-        ) {
-            Text(stringResource(Res.string.common_retry))
-        }
-    }
+    ErrorScreen(onRetry = onRetry)
 }
 
 @Composable
@@ -374,83 +317,14 @@ private fun CreateSpaceModal(
     onDismiss: () -> Unit,
     onClearError: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var selectedIcon by remember { mutableStateOf<String?>(null) }
-    val focusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.yield()
-        focusRequester.requestFocus()
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.large,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { 
-            Text(
-                text = stringResource(Res.string.space_create_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            ) 
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { 
-                        name = it
-                        onClearError()
-                    },
-                    label = { Text(stringResource(Res.string.space_name_hint)) },
-                    isError = error != null,
-                    supportingText = error?.let { { Text(it) } },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .focusRequester(focusRequester),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (name.isNotBlank()) {
-                                onConfirm(name, selectedIcon)
-                            }
-                        }
-                    )
-                )
-                
-                IconPicker(
-                    label = "Choose an icon (optional)",
-                    availableIcons = IconRegistry.spaceIcons,
-                    selectedIcon = selectedIcon,
-                    onIconSelected = { 
-                        selectedIcon = if (it == selectedIcon) null else it 
-                        onClearError()
-                    }
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(name, selectedIcon) },
-                enabled = name.isNotBlank(),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Text(
-                    text = stringResource(Res.string.common_save),
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = stringResource(Res.string.common_cancel),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
+    GenericFormModal(
+        title = stringResource(Res.string.space_create_title),
+        nameLabel = stringResource(Res.string.space_name_hint),
+        availableIcons = IconRegistry.spaceIcons,
+        iconLabel = "Choose an icon (optional)",
+        error = error,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        onClearError = onClearError
     )
 }

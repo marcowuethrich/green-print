@@ -4,33 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -44,21 +21,14 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.plant.PlantScreen
-import ch.wuethrich.greenprint.space.components.CreateRoomModal
-import ch.wuethrich.greenprint.space.components.DeleteRoomDialog
-import ch.wuethrich.greenprint.space.components.DeleteSpaceDialog
-import ch.wuethrich.greenprint.space.components.RenameRoomDialog
-import ch.wuethrich.greenprint.space.components.RenameSpaceDialog
-import ch.wuethrich.greenprint.space.components.SpaceDetailContent
-import ch.wuethrich.greenprint.space.components.SpaceEmptyContent
-import ch.wuethrich.greenprint.space.components.SpaceErrorContent
-import ch.wuethrich.greenprint.space.components.SpaceLoadingContent
-import ch.wuethrich.greenprint.space.components.SpaceSettingsMenu
+import ch.wuethrich.greenprint.space.components.*
 import ch.wuethrich.greenprint.ui.IconRegistry
+import ch.wuethrich.greenprint.ui.components.ErrorScreen
+import ch.wuethrich.greenprint.ui.components.LoadingScreen
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
-import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.ic_add
+import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 sealed interface SpaceModal {
@@ -90,7 +60,7 @@ class SpaceScreen : Screen {
         }
 
         // Handle one-time effects (like validation errors)
-        LaunchedEffect(Unit) {
+        LaunchedEffect(viewModel.uiEffect) {
             viewModel.uiEffect.collect { effect ->
                 when (effect) {
                     is SpaceUiEffect.ValidationError -> {
@@ -112,15 +82,8 @@ class SpaceScreen : Screen {
             }
         }
 
-        val title = when (val state = uiState) {
-            is SpaceUiState.HasSpace -> state.space.name
-            else -> ""
-        }
-        
-        val iconString = when (val state = uiState) {
-            is SpaceUiState.HasSpace -> state.space.icon
-            else -> null
-        }
+        val title = (uiState as? SpaceUiState.HasSpace)?.space?.name ?: ""
+        val iconString = (uiState as? SpaceUiState.HasSpace)?.space?.icon
 
         Scaffold(
             topBar = {
@@ -194,7 +157,7 @@ class SpaceScreen : Screen {
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         when (val state = uiState) {
-                            SpaceUiState.Loading -> SpaceLoadingContent()
+                            SpaceUiState.Loading -> LoadingScreen()
                             SpaceUiState.Empty -> SpaceEmptyContent()
                             is SpaceUiState.HasSpace -> SpaceDetailContent(
                                 state = state,
@@ -212,7 +175,7 @@ class SpaceScreen : Screen {
                                 },
                                 focusRequester = mainFocusRequester
                             )
-                            is SpaceUiState.Error -> SpaceErrorContent(onRetry = viewModel::retry)
+                            is SpaceUiState.Error -> ErrorScreen(onRetry = viewModel::retry)
                         }
                     }
                 }
@@ -299,11 +262,11 @@ class SpaceScreen : Screen {
             is SpaceModal.RoomNotEmpty -> {
                 AlertDialog(
                     onDismissRequest = { activeModal = SpaceModal.None },
-                    title = { Text("Room Not Empty") },
-                    text = { Text("The room '${modal.roomName}' contains plants. Please move or archive them before deleting the room.") },
+                    title = { Text(stringResource(Res.string.room_not_empty_title)) },
+                    text = { Text(stringResource(Res.string.room_not_empty_message, modal.roomName)) },
                     confirmButton = {
                         TextButton(onClick = { activeModal = SpaceModal.None }) {
-                            Text("OK")
+                            Text(stringResource(Res.string.common_ok))
                         }
                     }
                 )

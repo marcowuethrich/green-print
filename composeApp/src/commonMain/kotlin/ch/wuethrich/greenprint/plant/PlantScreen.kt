@@ -3,10 +3,10 @@ package ch.wuethrich.greenprint.plant
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +22,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.plant.components.PlantFormModal
 import ch.wuethrich.greenprint.ui.IconRegistry
-import ch.wuethrich.greenprint.ui.components.DeleteConfirmationDialog
+import ch.wuethrich.greenprint.ui.components.*
+import ch.wuethrich.greenprint.ui.motion.StaggerFadeUp
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
@@ -90,7 +91,9 @@ data class PlantScreen(val room: Room) : Screen {
                         editingPlant = null
                         showFormModal = true 
                     },
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = CircleShape
                 ) {
                     Icon(painter = painterResource(Res.drawable.ic_add), contentDescription = "Add Plant")
                 }
@@ -100,8 +103,8 @@ data class PlantScreen(val room: Room) : Screen {
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                 when (val state = uiState) {
-                    is PlantUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    is PlantUiState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))
+                    is PlantUiState.Loading -> LoadingScreen()
+                    is PlantUiState.Error -> ErrorScreen(message = state.message, onRetry = { viewModel.loadPlants(room.id) })
                     is PlantUiState.Success -> {
                         if (state.plants.isEmpty()) {
                             Text(
@@ -111,24 +114,26 @@ data class PlantScreen(val room: Room) : Screen {
                         } else {
                             LazyColumn(
                                 contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                items(state.plants) { plant ->
-                                    PlantItem(
-                                        plant = plant,
-                                        onWaterClick = { viewModel.waterPlant(plant.id) },
-                                        onEditClick = {
-                                            editingPlant = plant
-                                            showFormModal = true
-                                        },
-                                        onArchiveClick = { reason ->
-                                            viewModel.archivePlant(plant.id, reason)
-                                        },
-                                        onDeleteClick = {
-                                            plantToDelete = plant
-                                        }
-                                    )
+                                itemsIndexed(state.plants) { index, plant ->
+                                    StaggerFadeUp(index = index) {
+                                        PlantItem(
+                                            plant = plant,
+                                            onWaterClick = { viewModel.waterPlant(plant.id) },
+                                            onEditClick = {
+                                                editingPlant = plant
+                                                showFormModal = true
+                                            },
+                                            onArchiveClick = { reason ->
+                                                viewModel.archivePlant(plant.id, reason)
+                                            },
+                                            onDeleteClick = {
+                                                plantToDelete = plant
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -181,12 +186,15 @@ fun PlantItem(
 ) {
     val hydration = PlantCareUtils.calculateHydration(plant)
     val color = Color(PlantCareUtils.getBarometerColor(hydration))
-    var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = DesignSystem.CardElevation,
+            hoveredElevation = DesignSystem.CardElevationHovered,
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -205,48 +213,34 @@ fun PlantItem(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More options")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Edit") },
-                            onClick = {
-                                showMenu = false
-                                onEditClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.plant_archive_died)) },
-                            onClick = {
-                                showMenu = false
-                                onArchiveClick("DIED")
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.plant_archive_gifted)) },
-                            onClick = {
-                                showMenu = false
-                                onArchiveClick("GIFTED")
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    text = stringResource(Res.string.plant_delete),
-                                    color = MaterialTheme.colorScheme.error
-                                ) 
-                            },
-                            onClick = {
-                                showMenu = false
-                                onDeleteClick()
-                            }
-                        )
-                    }
+                
+                MoreOptionsMenu { onDismiss ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.common_edit)) },
+                        onClick = {
+                            onDismiss()
+                            onEditClick()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.plant_archive_died)) },
+                        onClick = {
+                            onDismiss()
+                            onArchiveClick("DIED")
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.plant_archive_gifted)) },
+                        onClick = {
+                            onDismiss()
+                            onArchiveClick("GIFTED")
+                        }
+                    )
+                    DeleteMenuItem(
+                        label = stringResource(Res.string.plant_delete),
+                        onDismiss = onDismiss,
+                        onClick = onDeleteClick
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -254,7 +248,8 @@ fun PlantItem(
                 progress = { hydration },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
                 color = color,
-                trackColor = color.copy(alpha = 0.2f)
+                trackColor = color.copy(alpha = 0.2f),
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
         }
     }

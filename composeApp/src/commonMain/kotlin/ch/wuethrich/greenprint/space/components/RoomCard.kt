@@ -1,40 +1,21 @@
 package ch.wuethrich.greenprint.space.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.ui.IconRegistry
+import ch.wuethrich.greenprint.ui.components.DeleteMenuItem
+import ch.wuethrich.greenprint.ui.components.MoreOptionsMenu
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.common_delete
 import greenprint.composeapp.generated.resources.common_rename
-import greenprint.composeapp.generated.resources.ic_more_vert
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -45,8 +26,6 @@ fun RoomCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -64,7 +43,8 @@ fun RoomCard(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -82,38 +62,19 @@ fun RoomCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        painter = painterResource(Res.drawable.ic_more_vert),
-                        contentDescription = "Room Settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.common_rename)) },
-                        onClick = {
-                            showMenu = false
-                            onRenameClick()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.common_delete)) },
-                        onClick = {
-                            showMenu = false
-                            onDeleteClick()
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = MaterialTheme.colorScheme.error
-                        )
-                    )
-                }
+            
+            MoreOptionsMenu { onDismiss ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.common_rename)) },
+                    onClick = {
+                        onDismiss()
+                        onRenameClick()
+                    }
+                )
+                DeleteMenuItem(
+                    onDismiss = onDismiss,
+                    onClick = onDeleteClick
+                )
             }
         }
     }
