@@ -42,6 +42,20 @@ GreenPrint follows a **clean, modular architecture** designed for scalability an
 
 ---
 
+## 🤖 Agentic Engineering Workflow
+
+GreenPrint is developed using a **Spec-Driven Agentic Workflow**, showcasing the future of professional software engineering where AI agents and human developers collaborate within a strict architectural framework.
+
+This project utilizes specialized AI context files to ensure that both **Gemini** and **Claude** agents operate with the same high standards and architectural awareness as a senior engineer:
+
+- **`GEMINI.md` & `CLAUDE.md`**: Foundational instruction sets that define project-specific conventions, mandatory pre-coding checklists, and architectural guardrails. These files act as the "Senior Architect" in the room, forcing the AI to validate every change against established patterns.
+- **`.gemini/` & `.claude/`**: Dedicated configuration directories containing custom skills and specialized agent definitions. This setup enables "Codebase-Aware Intelligence," where agents can autonomously research, plan, and execute complex refactors while respecting the [Architecture Decision Records (ADRs)](docs/architecture/decisions.md).
+- **The Process**: Every major feature begins with a **Research -> Strategy -> Execution** cycle. AI agents are required to perform empirical reproduction of bugs and draft design documents before writing a single line of production code.
+
+This methodology ensures that the codebase remains clean, consistent, and "Agent-Friendly," demonstrating a sophisticated mastery of modern AI-assisted development lifecycles.
+
+---
+
 ## 📁 Project Structure
 
 * **`/shared`**: The brains. Contains domain models, Ktor infrastructure, SQLDelight schemas, and KMP ViewModels. Consumed by all client targets.
