@@ -14,7 +14,12 @@ suspend inline fun <reified T> HttpClient.safeRequest(
     block: HttpRequestBuilder.() -> Unit
 ): NetworkResult<T> = try {
     val response = request(block)
-    NetworkResult.Success(response.body())
+    if (response.status == HttpStatusCode.NoContent) {
+        @Suppress("UNCHECKED_CAST")
+        NetworkResult.Success(Unit as T)
+    } else {
+        NetworkResult.Success(response.body())
+    }
 } catch (e: ResponseException) {
     NetworkResult.Failure(e.toNetworkError())
 } catch (e: IOException) {

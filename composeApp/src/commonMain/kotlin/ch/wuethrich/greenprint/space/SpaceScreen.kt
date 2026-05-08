@@ -80,6 +80,9 @@ class SpaceScreen : Screen {
                 isSaving = false
                 activeModal = SpaceModal.None
             }
+            if (uiState is SpaceUiState.Empty) {
+                navigator.pop()
+            }
         }
 
         val title = (uiState as? SpaceUiState.HasSpace)?.space?.name ?: ""
