@@ -149,7 +149,10 @@ class SpaceScreen : Screen {
                                 },
                                 focusRequester = mainFocusRequester
                             )
-                            is SpaceUiState.Error -> ErrorScreen(onRetry = viewModel::retry)
+                            is SpaceUiState.Error -> ErrorScreen(
+                                message = state.message,
+                                onRetry = viewModel::retry,
+                            )
                         }
                     }
                 }
