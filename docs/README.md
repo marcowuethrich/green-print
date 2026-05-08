@@ -9,6 +9,7 @@ Architecture diagrams use [Mermaid](https://mermaid.js.org/) with the [C4 model]
 | [Architecture Overview](architecture/overview.md) | C4 Container diagram — system structure and technology |
 | [Architecture Decision Records](architecture/decisions.md) | Key decisions made before feature implementation (auth, state, DI, networking, sharing, migrations) |
 | [Project Conventions](conventions.md) | Shared coding standards and naming patterns |
+| [Testing Strategy](testing.md) | UI testing patterns, ScreenTest, and fake infrastructure |
 | [Frontend Style Guide](style_guide.md) | UI/UX standards, colors, typography, and component patterns |
 
 ## Features
