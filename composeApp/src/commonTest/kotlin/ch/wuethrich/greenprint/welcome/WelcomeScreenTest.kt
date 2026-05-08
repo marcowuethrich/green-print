@@ -1,11 +1,6 @@
 package ch.wuethrich.greenprint.welcome
 
-import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.printToLog
-import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.*
 import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
@@ -16,8 +11,9 @@ import ch.wuethrich.greenprint.db.GreenPrintDbQueries
 import ch.wuethrich.greenprint.model.*
 import ch.wuethrich.greenprint.repository.*
 import ch.wuethrich.greenprint.space.SpaceViewModel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.dsl.viewModel
@@ -26,14 +22,18 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 
+@OptIn(ExperimentalTestApi::class)
 class WelcomeScreenTest {
+
+    private lateinit var fakeSpaceRepository: ControlledFakeSpaceRepository
 
     @BeforeTest
     fun setup() {
+        fakeSpaceRepository = ControlledFakeSpaceRepository()
         startKoin {
             modules(module {
                 single<GreenPrintDbQueries> { GreenPrintDbQueries(FakeSqlDriver()) }
-                single<SpaceRepository> { FakeSpaceRepository() }
+                single<SpaceRepository> { fakeSpaceRepository }
                 single<RoomRepository> { FakeRoomRepository() }
                 single<PlantRepository> { FakePlantRepository() }
                 viewModel { SpaceViewModel(get(), get(), get(), get()) }
@@ -46,30 +46,116 @@ class WelcomeScreenTest {
         stopKoin()
     }
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
-    fun testWelcomeScreenRendersEmptyStateWhenNoSpaces() = runComposeUiTest {
+    fun testWelcomeScreen_EmptyState_RendersCorrectly() = runComposeUiTest {
+        fakeSpaceRepository.emit(NetworkResult.Success(emptyList()))
+        
         setContent {
-            org.koin.compose.KoinContext {
-                // Need a Navigator since WelcomeScreen uses LocalNavigator.currentOrThrow
-                Navigator(WelcomeScreen())
-            }
+            Navigator(WelcomeScreen())
         }
 
-        // Wait for Loading to finish
-        waitForIdle()
+        onNodeWithText("Welcome to GreenPrint").assertIsDisplayed()
+        onNodeWithText("Start your plant journey by creating a space.").assertIsDisplayed()
+        onNodeWithText("Create living space").assertIsDisplayed()
+    }
 
-        try {
-            // Assert that the title is displayed (app_name "GreenPrint" in top bar)
-            // Check welcome_title "Welcome to GreenPrint"
-            onNodeWithText("Welcome to GreenPrint", substring = true).assertIsDisplayed()
-            
-            // Assert the "Create Space" button is displayed
-            onNodeWithText("Create living space", substring = true).assertIsDisplayed()
-        } catch (e: AssertionError) {
-            onRoot().printToLog("TEST_FAIL")
-            throw e
+    @Test
+    fun testWelcomeScreen_PopulatedState_RendersSpaceName() = runComposeUiTest {
+        val space = Space(id = "1", name = "Urban Jungle", icon = "balcony")
+        fakeSpaceRepository.emit(NetworkResult.Success(listOf(space)))
+
+        setContent {
+            Navigator(WelcomeScreen())
         }
+
+        onNodeWithText("Urban Jungle").assertIsDisplayed()
+        onNodeWithText("Tap to enter").assertIsDisplayed()
+    }
+
+    @Test
+    fun testWelcomeScreen_ErrorState_ShowsRetry() = runComposeUiTest {
+        fakeSpaceRepository.emit(NetworkResult.Failure(NetworkError.Connectivity))
+
+        setContent {
+            Navigator(WelcomeScreen())
+        }
+
+        onNodeWithText("Network error", substring = true).assertIsDisplayed()
+        onNodeWithText("Retry").assertIsDisplayed()
+    }
+
+    @Test
+    fun testWelcomeScreen_Modal_CanCreateSpace() = runComposeUiTest {
+        fakeSpaceRepository.emit(NetworkResult.Success(emptyList()))
+
+        setContent {
+            Navigator(WelcomeScreen())
+        }
+
+        // Open Modal
+        onNodeWithText("Create living space").performClick()
+        
+        // Verify Modal Title (Uses space_create_title)
+        onNodeWithText("Your Living Space").assertIsDisplayed()
+
+        // Type Name (Uses space_name_hint)
+        onNodeWithText("Space name").performTextInput("Green Balcony")
+        
+        // Setup success result for creation
+        fakeSpaceRepository.createResult = NetworkResult.Success(Space("2", "Green Balcony"))
+
+        // Confirm (Uses common_save)
+        onNodeWithText("Save").performClick()
+
+        // Wait for state change and check if populated content appears
+        onNodeWithText("Green Balcony").assertIsDisplayed()
+    }
+
+    @Test
+    fun testWelcomeScreen_Modal_ShowsValidationError() = runComposeUiTest {
+        fakeSpaceRepository.emit(NetworkResult.Success(emptyList()))
+
+        setContent {
+            Navigator(WelcomeScreen())
+        }
+
+        // Open Modal
+        onNodeWithText("Create living space").performClick()
+
+        // Type Name
+        onNodeWithText("Space name").performTextInput("Existing Space")
+        
+        // Setup conflict result
+        fakeSpaceRepository.createResult = NetworkResult.Failure(NetworkError.Conflict)
+
+        // Confirm
+        onNodeWithText("Save").performClick()
+
+        // Verify Validation Error Message (from SpaceViewModel.handleFormError conflict message)
+        onNodeWithText("A space with this name already exists.").assertIsDisplayed()
+        
+        // Modal should still be open
+        onNodeWithText("Your Living Space").assertIsDisplayed()
+    }
+
+    @Test
+    fun testWelcomeScreen_Modal_CanCancel() = runComposeUiTest {
+        fakeSpaceRepository.emit(NetworkResult.Success(emptyList()))
+
+        setContent {
+            Navigator(WelcomeScreen())
+        }
+
+        // Open Modal
+        onNodeWithText("Create living space").performClick()
+        onNodeWithText("Your Living Space").assertIsDisplayed()
+
+        // Cancel (Uses common_cancel)
+        onNodeWithText("Cancel").performClick()
+
+        // Verify Modal is gone
+        onNodeWithText("Your Living Space").assertDoesNotExist()
+        onNodeWithText("Welcome to GreenPrint").assertIsDisplayed()
     }
 }
 
@@ -100,10 +186,25 @@ private class FakeTransaction : Transacter.Transaction() {
     override fun endTransaction(successful: Boolean): QueryResult<Unit> = QueryResult.Value(Unit)
 }
 
-private class FakeSpaceRepository : SpaceRepository {
-    override fun observeSpaces(): Flow<NetworkResult<List<Space>>> = flowOf(NetworkResult.Success(emptyList()))
+private class ControlledFakeSpaceRepository : SpaceRepository {
+    private val flow = MutableSharedFlow<NetworkResult<List<Space>>>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    var createResult: NetworkResult<Space>? = null
+
+    fun emit(result: NetworkResult<List<Space>>) {
+        flow.tryEmit(result)
+    }
+
+    override fun observeSpaces(): Flow<NetworkResult<List<Space>>> = flow
     override suspend fun getSpace(id: String): NetworkResult<Space> = NetworkResult.Success(Space("1", "Space"))
-    override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> = NetworkResult.Success(Space("new", name, icon))
+    
+    override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> {
+        val result = createResult ?: NetworkResult.Success(Space("new", name, icon))
+        if (result is NetworkResult.Success) {
+            emit(NetworkResult.Success(listOf(result.data)))
+        }
+        return result
+    }
+
     override suspend fun updateSpace(id: String, name: String, icon: String?): NetworkResult<Space> = NetworkResult.Success(Space(id, name, icon))
     override suspend fun deleteSpace(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
 }
@@ -121,3 +222,5 @@ private class FakePlantRepository : PlantRepository {
     override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> = NetworkResult.Failure(NetworkError.NotFound)
     override suspend fun deletePlant(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
 }
+
+private fun <T> flowOf(value: T): Flow<T> = kotlinx.coroutines.flow.flow { emit(value) }

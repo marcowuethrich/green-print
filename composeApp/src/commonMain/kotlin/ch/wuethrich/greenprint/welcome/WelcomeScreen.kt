@@ -147,7 +147,10 @@ class WelcomeScreen : Screen {
                                 onEnter = { navigator.push(SpaceScreen()) },
                                 focusRequester = welcomeFocusRequester
                             )
-                            is SpaceUiState.Error -> WelcomeErrorContent(onRetry = viewModel::retry)
+                            is SpaceUiState.Error -> WelcomeErrorContent(
+                                message = state.message,
+                                onRetry = viewModel::retry
+                            )
                         }
                     }
                 }
@@ -306,8 +309,8 @@ private fun WelcomePopulatedContent(
 }
 
 @Composable
-private fun WelcomeErrorContent(onRetry: () -> Unit) {
-    ErrorScreen(onRetry = onRetry)
+private fun WelcomeErrorContent(message: String, onRetry: () -> Unit) {
+    ErrorScreen(message = message, onRetry = onRetry)
 }
 
 @Composable
