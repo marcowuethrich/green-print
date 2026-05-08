@@ -11,59 +11,58 @@ UI tests for the `composeApp` module are located in `composeApp/src/commonTest`.
 The `ScreenTest` base class (`ch.wuethrich.greenprint.testing.ScreenTest`) provides a standardized environment for screen-level UI tests.
 
 **Features:**
+- **Zero Animations:** Automatically provides `LocalAnimationsEnabled = false` via `CompositionLocal`. This makes transitions instantaneous and removes the need for `mainClock.advanceTimeBy`.
 - **Fresh Fakes:** Every test gets new instances of `FakeSpaceRepository`, `FakeRoomRepository`, and `FakePlantRepository`.
 - **Koin Integration:** Automatically starts and stops a Koin container for each test, wired with `testAppModule`.
 - **Voyager Navigator:** Includes a `setScreenContent` helper to mount screens inside a Voyager `Navigator`.
-- **Back-stack Assertions:** Support for `MarkerScreen` to verify navigation pops.
 
-### Usage Example
+### Robust Synchronization Patterns
 
-To test a screen, extend `ScreenTest` and use `runComposeUiTest`:
+Avoid hardcoded delays like `Thread.sleep()` or `advanceTimeBy()`. Instead, use `waitUntil` with specific matchers:
+
+#### Waiting for Focus
+When testing focus (e.g., auto-focusing a field), use the `isFocused()` matcher inside `waitUntil`:
 
 ```kotlin
-@OptIn(ExperimentalTestApi::class)
-class MyScreenTest : ScreenTest() {
-
-    @Test
-    fun rendersTitle() = runComposeUiTest {
-        // 1. Arrange: Setup fake data
-        val space = Space(id = "1", name = "Home Office")
-        spaceRepository.emitSpaces(listOf(space))
-
-        // 2. Act: Mount the screen
-        setScreenContent(MyScreen())
-
-        // 3. Assert: Verify UI state
-        onNodeWithText("Home Office").assertIsDisplayed()
-    }
-
-    @Test
-    fun handlesDeletion() = runComposeUiTest {
-        val behind = MarkerScreen()
-        val screen = MyScreen()
-        
-        // Mount with a parent screen behind it
-        setScreenContent(screen, behind = behind)
-
-        // Perform action that triggers pop
-        onNodeWithContentDescription("Delete").performClick()
-
-        // Assert we are back on the marker screen
-        onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
-    }
+waitUntil(timeoutMillis = 2000L) {
+    onAllNodes(isFocused() and hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
 }
 ```
 
-### Dependency Injection in Tests
-
-If a screen requires specific ViewModels or other dependencies not in `testAppModule`, override `extraModules()`:
+#### Handling Overlapping UI
+If multiple nodes match (e.g., a "Delete" button in a menu and another in a confirmation dialog), use `onLast()` or specific ancestor matchers to target the correct one:
 
 ```kotlin
-override fun extraModules() = listOf(
-    module {
-        factory { MyViewModel(get()) }
+// Click the "Delete" in the dialog, not the menu item
+onAllNodesWithText("Delete").onLast().performClick()
+```
+
+### Component Best Practices
+To ensure components are ready for focus in a zero-animation test environment, use `withFrameNanos` before requesting focus:
+
+```kotlin
+LaunchedEffect(Unit) {
+    if (animationsEnabled) {
+        delay(100.milliseconds)
+    } else {
+        withFrameNanos { } // Yield to let Compose layout before focusing
     }
-)
+    focusRequester.requestFocus()
+}
+```
+
+### Running Tests Locally
+
+The fastest and most reliable way to run UI tests locally is using the JVM (Desktop) target. This avoids the overhead of Android emulators or Robolectric environment issues.
+
+**Run all UI tests:**
+```bash
+./gradlew :composeApp:jvmTest
+```
+
+**Run a specific test class:**
+```bash
+./gradlew :composeApp:jvmTest --tests "ch.wuethrich.greenprint.space.SpaceScreenTest"
 ```
 
 ## Fake Infrastructure
