@@ -15,6 +15,7 @@ import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.ui.IconRegistry
 import ch.wuethrich.greenprint.ui.components.DeleteConfirmationDialog
 import ch.wuethrich.greenprint.ui.components.GenericFormModal
+import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
@@ -136,7 +137,7 @@ fun DeleteSpaceDialog(
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(DesignSystem.Space2)) {
                 TextButton(onClick = onDismiss) {
                     Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

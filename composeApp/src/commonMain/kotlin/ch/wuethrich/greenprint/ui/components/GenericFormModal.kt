@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import ch.wuethrich.greenprint.ui.IconPicker
+import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
 import greenprint.composeapp.generated.resources.common_save

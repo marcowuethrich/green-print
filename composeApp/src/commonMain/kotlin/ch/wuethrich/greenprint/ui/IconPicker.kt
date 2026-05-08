@@ -26,8 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ch.wuethrich.greenprint.ui.theme.DesignSystem
 
 @Composable
 fun IconPicker(
@@ -42,12 +42,12 @@ fun IconPicker(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp)
+            modifier = Modifier.padding(horizontal = DesignSystem.Space2)
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(DesignSystem.Space2))
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp)
+            horizontalArrangement = Arrangement.spacedBy(DesignSystem.Space4),
+            contentPadding = PaddingValues(horizontal = DesignSystem.Space2)
         ) {
             itemsIndexed(availableIcons) { _, iconId ->
                 val isSelected = iconId == selectedIcon

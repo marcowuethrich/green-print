@@ -14,8 +14,8 @@ import androidx.compose.ui.unit.dp
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
 import greenprint.composeapp.generated.resources.common_delete
-import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable

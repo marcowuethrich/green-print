@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -121,7 +122,7 @@ fun PlantFormModal(
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(DesignSystem.Space2)) {
                 TextButton(onClick = onDismiss) {
                     Text(
                         text = stringResource(Res.string.common_cancel),

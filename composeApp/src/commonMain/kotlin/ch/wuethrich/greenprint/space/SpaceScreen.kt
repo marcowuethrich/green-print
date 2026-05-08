@@ -3,7 +3,6 @@ package ch.wuethrich.greenprint.space
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -11,9 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
@@ -24,8 +20,8 @@ import ch.wuethrich.greenprint.plant.PlantScreen
 import ch.wuethrich.greenprint.space.components.*
 import ch.wuethrich.greenprint.ui.IconRegistry
 import ch.wuethrich.greenprint.ui.components.ErrorScreen
+import ch.wuethrich.greenprint.ui.components.GreenPrintScaffold
 import ch.wuethrich.greenprint.ui.components.LoadingScreen
-import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -88,43 +84,20 @@ class SpaceScreen : Screen {
         val title = (uiState as? SpaceUiState.HasSpace)?.space?.name ?: ""
         val iconString = (uiState as? SpaceUiState.HasSpace)?.space?.icon
 
-        Scaffold(
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = { 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (uiState is SpaceUiState.HasSpace) {
-                                Icon(
-                                    painter = IconRegistry.getPainter(iconString),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            ) 
-                        }
-                    },
-                    actions = {
-                        if (uiState is SpaceUiState.HasSpace) {
-                            SpaceSettingsMenu(
-                                onLeave = { navigator.pop() },
-                                onRenameClick = { 
-                                    validationError = null
-                                    activeModal = SpaceModal.RenameSpace 
-                                },
-                                onDeleteClick = { activeModal = SpaceModal.DeleteSpace }
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
+        GreenPrintScaffold(
+            title = title,
+            titleIcon = if (uiState is SpaceUiState.HasSpace) IconRegistry.getPainter(iconString) else null,
+            actions = {
+                if (uiState is SpaceUiState.HasSpace) {
+                    SpaceSettingsMenu(
+                        onLeave = { navigator.pop() },
+                        onRenameClick = { 
+                            validationError = null
+                            activeModal = SpaceModal.RenameSpace 
+                        },
+                        onDeleteClick = { activeModal = SpaceModal.DeleteSpace }
                     )
-                )
+                }
             },
             floatingActionButton = {
                 if (uiState is SpaceUiState.HasSpace) {
@@ -141,9 +114,7 @@ class SpaceScreen : Screen {
                         Icon(painter = painterResource(Res.drawable.ic_add), contentDescription = "Add Room")
                     }
                 }
-            },
-            containerColor = Color.Transparent,
-            modifier = Modifier.background(Brush.verticalGradient(DesignSystem.BackgroundGradient))
+            }
         ) { innerPadding ->
             Box(
                 modifier = Modifier.padding(innerPadding).fillMaxSize(),

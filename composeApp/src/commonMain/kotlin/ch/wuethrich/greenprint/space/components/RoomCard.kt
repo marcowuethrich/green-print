@@ -54,7 +54,7 @@ fun RoomCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(DesignSystem.Space4))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = room.name,
