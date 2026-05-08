@@ -66,6 +66,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.compose.ui.test)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
@@ -95,6 +96,9 @@ android {
         getByName("release") {
             isMinifyEnabled = false
         }
+    }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
