@@ -83,6 +83,8 @@ This methodology ensures that the codebase remains clean, consistent, and "Agent
 | **Full UI Test Suite** | `./gradlew :composeApp:jvmTest` |
 | **DB Migration** | `atlas migrate apply --url $DB_URL` |
 
+> **Note:** When running in dev mode (`./gradlew :server:quarkusDev`), the database is dynamically populated with realistic test data (spaces, rooms, and plants) upon your first login. This ensures a "ready-to-go" experience tailored to your session.
+
 ---
 
 ## 🚀 Roadmap
