@@ -2,99 +2,83 @@
 
 [![Kotlin](https://img.shields.io/badge/kotlin-2.3-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![KMP](https://img.shields.io/badge/Kotlin_Multiplatform-Enabled-7f52ff?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
+[![Backend](https://img.shields.io/badge/Backend-Quarkus-ff0044?logo=quarkus)](https://quarkus.io/)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Desktop-lightgrey.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**GreenPrint** is a spatial houseplant inventory app built with Kotlin Multiplatform (KMP). Unlike traditional list-based trackers, GreenPrint allows users to visually map their indoor jungle using an interactive top-down blueprint of their living space.
-
-This project serves as a showcase of modern cross-platform architecture, shared business logic, and custom UI development across multiple platforms.
+**GreenPrint** is a high-performance spatial houseplant inventory system built with **Kotlin Multiplatform (KMP)** and **Quarkus**. It serves as a reference implementation for enterprise-grade cross-platform development, featuring shared business logic, reactive state management, and a visually immersive spatial UI.
 
 ---
 
-## ✨ Core Features
+## 🏗️ Architectural Overview
 
-* **📐 Spatial Living Space:** Create a top-down blueprint of your home and drag-and-drop plants into specific rooms.
-* **🌱 Plant Archiving:** Manage plant lifecycles, tracking details like soil mix, and archiving plants that have died or been gifted.
-* **💧 Smart Watering:** Track hydration with a visual barometer and get cross-device notifications when plants need water.
+GreenPrint follows a **clean, modular architecture** designed for scalability and maintainability across mobile, web, and desktop platforms.
+
+- **Unified Shared Core**: All business logic, state management (ViewModels), and network infrastructure live in a single `shared` module, ensuring 100% consistency across Android, iOS, JVM, and Wasm.
+- **Modern UI**: Driven by **Compose Multiplatform**, allowing for a unified design system with native performance on all targets.
+- **Enterprise Backend**: A reactive **Quarkus** service providing robust OIDC-secured APIs and high-efficiency persistence.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Full Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Multiplatform UI | Compose Multiplatform |
-| Shared client logic | Kotlin Multiplatform — Ktor Client, Koin, KMP ViewModel |
-| Backend | Quarkus / Kotlin — Hibernate Panache, quarkus-oidc |
-| Database migrations | Atlas |
-| Auth | OIDC / OAuth 2.0 (via quarkus-oidc; Testcontainers for integration tests) |
+### Frontend (KMP & Compose)
+* **UI Framework**: [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/) for consistent, declarative UI.
+* **Navigation**: [Voyager](https://voyager.adriel.cafe/) with state-aware stack management.
+* **Dependency Injection**: [Koin](https://insert-koin.io/) for cross-platform DI.
+* **Networking**: [Ktor Client](https://ktor.io/) with serialization and reactive flows.
+* **Persistence**: [SQLDelight](https://cashapp.github.io/sqldelight/) for type-safe, multiplatform database access.
+
+### Backend (Quarkus)
+* **Core**: [Quarkus](https://quarkus.io/) — The Supersonic Subatomic Java Framework.
+* **Persistence**: [Hibernate Panache](https://quarkus.io/guides/hibernate-panache) for streamlined data access.
+* **Security**: [OIDC / OAuth 2.0](https://quarkus.io/guides/security-openid-connect) with server-side token validation.
+* **Migrations**: [Atlas](https://atlasgo.io/) for modern, declarative database schema management.
+
+### Quality & Engineering
+* **UI Testing**: Instantaneous cross-platform UI tests using `waitUntil` and global animation control (skipping animations in test mode for maximum speed).
+* **Local Verfication**: Optimized JVM-target testing workflow (`./gradlew :composeApp:jvmTest`) for rapid feedback loops.
+* **CI/CD Ready**: Strict architectural rules enforced via documentation-first engineering (ADRs).
 
 ---
 
 ## 📁 Project Structure
 
-Everything that can run on all client targets lives in `shared`. Platform-specific entry points are thin.
-
-* **`/shared`**: The shared client library. Contains domain DTOs, the Ktor HTTP client, Koin DI modules, and KMP ViewModels. All client-side business logic lives here; state is held in-memory. Consumed by `composeApp` on every target.
-* **`/composeApp`**: Compose Multiplatform UI (`commonMain`) and thin platform entry points (`androidMain`, `iosMain`, `jvmMain`, `wasmJsMain`). No business logic — only UI code.
-* **`/iosApp`**: The iOS Xcode project entry point.
-* **`/server`**: The Quarkus backend. Defines its own Panache entity layer (independent of the shared DTOs) and validates OIDC tokens issued by the identity provider.
+* **`/shared`**: The brains. Contains domain models, Ktor infrastructure, SQLDelight schemas, and KMP ViewModels. Consumed by all client targets.
+* **`/composeApp`**: The face. Pure UI layer using Compose Multiplatform. Targets Android, iOS, Desktop (JVM), and Web (Wasm).
+* **`/server`**: The backbone. Quarkus-based microservice handling persistence and auth.
+* **`/docs`**: The manual. [Architecture Decision Records (ADRs)](docs/architecture/decisions.md) and [Testing Strategy](docs/testing.md).
 
 ---
 
-## 💻 Getting Started
+## 💻 Developer Guide
 
 ### Prerequisites
-* [Android Studio](https://developer.android.com/studio) (Latest recommended)
-* [Xcode](https://developer.apple.com/xcode/) (For iOS builds)
-* [Kotlin Multiplatform Mobile Plugin](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform-mobile)
+* **JDK 21+**
+* **Android Studio / IntelliJ IDEA** (with KMP plugin)
+* **Atlas CLI** (for DB migrations)
 
-### Build & Run Commands
+### Essential Commands
 
-You can run these directly from your terminal or use the run configurations in Android Studio/IntelliJ. *(Note: On Windows, use `.\gradlew.bat` instead of `./gradlew`)*
-
-**🤖 Android:**
-```bash
-./gradlew :composeApp:assembleDebug
-```
-
-**🍎 iOS:**
-Open the `/iosApp` directory in Xcode and run it directly from the IDE, or use the run configuration in Android Studio.
-
-**🖥️ Desktop (JVM):**
-```bash
-./gradlew :composeApp:run
-```
-
-**🌐 Web (Wasm - Modern Browsers):**
-```bash
-./gradlew :composeApp:wasmJsBrowserDevelopmentRun
-```
-
-**☁️ Server (Quarkus):**
-```bash
-./gradlew :server:quarkusDev
-```
+| Target | Command |
+|---|---|
+| **Server (Dev Mode)** | `./gradlew :server:quarkusDev` |
+| **Android** | `./gradlew :composeApp:assembleDebug` |
+| **Desktop (JVM)** | `./gradlew :composeApp:run` |
+| **Web (Wasm)** | `./gradlew :composeApp:wasmJsBrowserDevelopmentRun` |
+| **Full UI Test Suite** | `./gradlew :composeApp:jvmTest` |
+| **DB Migration** | `atlas migrate apply --url $DB_URL` |
 
 ---
 
 ## 🚀 Roadmap
 
-- [x] Wire up Koin DI, Ktor Client, and KMP ViewModels in `shared`.
-- [x] Set up OIDC authentication (quarkus-oidc) with integration tests.
-- [x] Set up server-side persistence with Quarkus Hibernate Panache and Atlas schema migrations.
-- [ ] **Phase 1: Inventory & Health**
-    - [ ] Single living space management (Rooms: Create, Rename, Delete).
-    - [ ] Plant CRUD (Species, Pot size, Soil type).
-    - [ ] Archive System (Reason: Died, Gifted, Sold; Read-only gallery).
-    - [ ] Watering Barometer logic & hydration degradation.
-- [ ] **Phase 2: Spatial Experience & Engagement**
-    - [ ] Interactive 2D Spatial Blueprint UI.
-    - [ ] Drag-and-drop plant placement (Save/Load coordinates).
-    - [ ] Local Notifications for "thirsty" zone alerts.
-- [ ] **Phase 3: Intelligence & Security**
-    - [ ] AI auto-generation using LLM vision models for automatic plant care profiles.
-    - [ ] Real OIDC/OAuth 2.0 Integration (replacing No-Op Auth).
+- [x] High-performance UI testing infrastructure (Zero-delay strategy).
+- [x] OIDC-secured Quarkus backend with Panache persistence.
+- [x] Atlas-driven declarative database migrations.
+- [ ] **Phase 1: Inventory Management** — Room CRUD and Plant lifecycle tracking.
+- [ ] **Phase 2: Spatial Blueprint** — Interactive 2D mapping and drag-and-drop placement.
+- [ ] **Phase 3: Intelligence** — AI-assisted plant care profiles via Vision LLMs.
 
-## 🤝 Contributing & License
-This is primarily a personal portfolio project. Licensed under the [MIT License](LICENSE).
+## 🤝 License
+Licensed under the [MIT License](LICENSE).
