@@ -11,7 +11,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Buttery staggered entrance. Wraps content and fades it in from below after
@@ -31,18 +33,25 @@ fun StaggerFadeUp(
     durationMs: Int = 720,
     content: @Composable () -> Unit,
 ) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay((initialDelayMs + index * stepMs).toLong())
-        visible = true
+    val animationsEnabled = LocalAnimationsEnabled.current
+    var visible by remember { mutableStateOf(!animationsEnabled) }
+    
+    if (animationsEnabled) {
+        LaunchedEffect(Unit) {
+            delay((initialDelayMs + index * stepMs).toLong().milliseconds)
+            visible = true
+        }
     }
+
+    val finalDuration = if (animationsEnabled) durationMs else 0
+
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = fadeIn(animationSpec = tween(durationMs)) +
+        enter = fadeIn(animationSpec = tween(finalDuration)) +
                 slideInVertically(
                     initialOffsetY = { it / 4 + 28 },
-                    animationSpec = tween(durationMs),
+                    animationSpec = tween(finalDuration),
                 ),
     ) {
         content()

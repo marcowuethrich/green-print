@@ -2,6 +2,7 @@ package ch.wuethrich.greenprint.testing
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -9,6 +10,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.CurrentScreen
 import cafe.adriel.voyager.navigator.Navigator
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
@@ -23,17 +25,6 @@ import kotlin.test.BeforeTest
  *    optionally on top of a [MarkerScreen] for back-stack assertions.
  *
  * Override [extraModules] to inject additional bindings (e.g. screen-specific ViewModels).
- *
- * Usage:
- * ```
- * class MyScreenTest : ScreenTest() {
- *     @Test fun rendersTitle() = runComposeUiTest {
- *         spaceRepository.emitSpaces(listOf(Space("1", "Home")))
- *         setScreenContent(MyScreen())
- *         onNodeWithText("Home").assertIsDisplayed()
- *     }
- * }
- * ```
  */
 @OptIn(ExperimentalTestApi::class)
 abstract class ScreenTest {
@@ -69,13 +60,15 @@ abstract class ScreenTest {
 @OptIn(ExperimentalTestApi::class)
 fun ComposeUiTest.setScreenContent(screen: Screen, behind: Screen? = null) {
     setContent {
-        if (behind != null) {
-            Navigator(behind) { navigator ->
-                CurrentScreen()
-                LaunchedEffect(Unit) { navigator.push(screen) }
+        CompositionLocalProvider(LocalAnimationsEnabled provides false) {
+            if (behind != null) {
+                Navigator(behind) { navigator ->
+                    CurrentScreen()
+                    LaunchedEffect(Unit) { navigator.push(screen) }
+                }
+            } else {
+                Navigator(screen)
             }
-        } else {
-            Navigator(screen)
         }
     }
 }

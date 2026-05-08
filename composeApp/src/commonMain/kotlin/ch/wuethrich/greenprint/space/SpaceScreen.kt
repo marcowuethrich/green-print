@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.space
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,7 @@ import ch.wuethrich.greenprint.ui.IconRegistry
 import ch.wuethrich.greenprint.ui.components.ErrorScreen
 import ch.wuethrich.greenprint.ui.components.GreenPrintScaffold
 import ch.wuethrich.greenprint.ui.components.LoadingScreen
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import greenprint.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -44,15 +46,18 @@ class SpaceScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel: SpaceViewModel = koinViewModel()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        var visible by remember { mutableStateOf(false) }
+        val animationsEnabled = LocalAnimationsEnabled.current
+        var visible by remember { mutableStateOf(!animationsEnabled) }
         val mainFocusRequester = remember { FocusRequester() }
 
         var activeModal by remember { mutableStateOf<SpaceModal>(SpaceModal.None) }
         var validationError by remember { mutableStateOf<String?>(null) }
         var isSaving by remember { mutableStateOf(false) }
 
-        LaunchedEffect(Unit) {
-            visible = true
+        if (animationsEnabled) {
+            LaunchedEffect(Unit) {
+                visible = true
+            }
         }
 
         // Handle one-time effects (like validation errors)
@@ -120,9 +125,14 @@ class SpaceScreen : Screen {
                 modifier = Modifier.padding(innerPadding).fillMaxSize(),
                 contentAlignment = Alignment.TopCenter,
             ) {
+                val duration = if (animationsEnabled) 300 else 0
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn() + slideInVertically(initialOffsetY = { 20 })
+                    enter = fadeIn(animationSpec = tween(duration)) + 
+                            slideInVertically(
+                                initialOffsetY = { 20 },
+                                animationSpec = tween(duration)
+                            )
                 ) {
                     Column(
                         modifier = Modifier

@@ -16,9 +16,10 @@ import ch.wuethrich.greenprint.ui.IconRegistry
 import ch.wuethrich.greenprint.ui.components.DeleteConfirmationDialog
 import ch.wuethrich.greenprint.ui.components.GenericFormModal
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import greenprint.composeapp.generated.resources.*
-import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
@@ -108,9 +109,14 @@ fun DeleteSpaceDialog(
 ) {
     var confirmationText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    val animationsEnabled = LocalAnimationsEnabled.current
 
     LaunchedEffect(Unit) {
-        delay(100.milliseconds)
+        if (animationsEnabled) {
+            delay(100.milliseconds)
+        } else {
+            withFrameNanos { }
+        }
         focusRequester.requestFocus()
     }
 

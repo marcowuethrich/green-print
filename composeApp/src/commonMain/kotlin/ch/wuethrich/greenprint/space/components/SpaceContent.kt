@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -23,7 +24,9 @@ import ch.wuethrich.greenprint.space.SpaceUiState
 import ch.wuethrich.greenprint.ui.components.ErrorScreen
 import ch.wuethrich.greenprint.ui.components.LoadingScreen
 import ch.wuethrich.greenprint.ui.motion.StaggerFadeUp
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import greenprint.composeapp.generated.resources.*
+import kotlinx.coroutines.yield
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
@@ -57,10 +60,16 @@ fun SpaceDetailContent(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
+    val animationsEnabled = LocalAnimationsEnabled.current
+
     // Auto-focus the "Add Room" button when the space is empty
     if (state.space.rooms.isEmpty()) {
         LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(100.milliseconds)
+            if (animationsEnabled) {
+                kotlinx.coroutines.delay(100.milliseconds)
+            } else {
+                withFrameNanos { }
+            }
             focusRequester.requestFocus()
         }
         

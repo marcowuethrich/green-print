@@ -6,6 +6,8 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -198,14 +200,21 @@ private val AppShapes = Shapes(
 )
 
 @Composable
-fun GreenPrintTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = GreenColorScheme,
-        typography = appTypography(),
-        shapes = AppShapes,
-        content = content,
-    )
+fun GreenPrintTheme(
+    animationsEnabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    CompositionLocalProvider(LocalAnimationsEnabled provides animationsEnabled) {
+        MaterialTheme(
+            colorScheme = GreenColorScheme,
+            typography = appTypography(),
+            shapes = AppShapes,
+            content = content,
+        )
+    }
 }
+
+val LocalAnimationsEnabled = staticCompositionLocalOf { true }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DesignSystem — non-Material tokens (spacing scale, motion durations, and

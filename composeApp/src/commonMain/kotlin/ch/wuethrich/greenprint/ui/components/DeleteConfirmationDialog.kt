@@ -6,15 +6,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
 import greenprint.composeapp.generated.resources.common_delete
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.yield
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -26,9 +29,14 @@ fun DeleteConfirmationDialog(
     onDismiss: () -> Unit,
 ) {
     val cancelFocusRequester = remember { FocusRequester() }
+    val animationsEnabled = LocalAnimationsEnabled.current
 
     LaunchedEffect(Unit) {
-        delay(100.milliseconds)
+        if (animationsEnabled) {
+            delay(100.milliseconds)
+        } else {
+            withFrameNanos { }
+        }
         cancelFocusRequester.requestFocus()
     }
 

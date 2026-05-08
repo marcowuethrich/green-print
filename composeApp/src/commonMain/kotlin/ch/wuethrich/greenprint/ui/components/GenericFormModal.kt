@@ -14,12 +14,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import ch.wuethrich.greenprint.ui.IconPicker
-import ch.wuethrich.greenprint.ui.theme.DesignSystem
+import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_cancel
 import greenprint.composeapp.generated.resources.common_save
-import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
@@ -45,9 +45,14 @@ fun GenericFormModal(
     }
     var selectedIcon by remember(initialIcon) { mutableStateOf(initialIcon) }
     val focusRequester = remember { FocusRequester() }
+    val animationsEnabled = LocalAnimationsEnabled.current
 
     LaunchedEffect(Unit) {
-        delay(100.milliseconds)
+        if (animationsEnabled) {
+            delay(100.milliseconds)
+        } else {
+            withFrameNanos { }
+        }
         focusRequester.requestFocus()
     }
 

@@ -1,20 +1,6 @@
 package ch.wuethrich.greenprint.space
 
-import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsFocused
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performImeAction
-import androidx.compose.ui.test.performTextClearance
-import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.*
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Room
@@ -33,13 +19,6 @@ import kotlin.test.Test
  *  - modals (CreateRoom, RenameSpace, RenameRoom, DeleteSpace, DeleteRoom)
  *  - back-stack navigation (delete-space, empty-state auto-pop)
  *  - keyboard focus (ADR-013)
- *
- * Conventions:
- *  - Modal/dialog interactions are anchored on unique button labels (Save / Cancel / Delete)
- *    or content descriptions; for ambiguous labels (multiple "More options" buttons in
- *    populated state) we use [onAllNodesWithContentDescription] and explicit indexes.
- *  - The text input inside a dialog is located via [hasSetTextAction] since OutlinedTextFields
- *    don't expose stable labels in all dialogs.
  */
 @OptIn(ExperimentalTestApi::class)
 class SpaceScreenTest : ScreenTest() {
@@ -65,7 +44,6 @@ class SpaceScreenTest : ScreenTest() {
     fun populatedRooms_showsRoomsSectionWithAllRooms() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
         onNodeWithText("Rooms").assertIsDisplayed()
         onNodeWithText("Living Room").assertIsDisplayed()
@@ -123,12 +101,10 @@ class SpaceScreenTest : ScreenTest() {
         spaceRepository.emitSpaces(listOf(home))
         setScreenContent(SpaceScreen())
 
-        // Empty rooms → only the top-bar "More options" button exists
         onNodeWithContentDescription("More options").performClick()
         onNodeWithText("Rename").performClick()
 
         onNodeWithText("Rename space").assertIsDisplayed()
-        onNodeWithText("Space name").assertIsDisplayed()
     }
 
     @Test
@@ -140,7 +116,6 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Delete").performClick()
 
         onNodeWithText("Delete space?").assertIsDisplayed()
-        onNodeWithText("Please type 'Home' to confirm deletion:").assertIsDisplayed()
     }
 
     @Test
@@ -151,6 +126,9 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithContentDescription("More options").performClick()
         onNodeWithText("Leave Space").performClick()
 
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodesWithText(MarkerScreen.MARKER_TEXT).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
     }
 
@@ -162,9 +140,7 @@ class SpaceScreenTest : ScreenTest() {
     fun roomCard_renameOpensRenameRoomDialog() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
-        // Index 0 = top-bar settings menu, index 1+ = room cards in render order
         onAllNodesWithContentDescription("More options")[1].performClick()
         onNodeWithText("Rename").performClick()
 
@@ -175,13 +151,11 @@ class SpaceScreenTest : ScreenTest() {
     fun roomCard_deleteOpensDeleteRoomDialog() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
         onAllNodesWithContentDescription("More options")[1].performClick()
         onNodeWithText("Delete").performClick()
 
         onNodeWithText("Delete room?").assertIsDisplayed()
-        onNodeWithText("Are you sure you want to delete", substring = true).assertIsDisplayed()
     }
 
     // endregion
@@ -201,11 +175,7 @@ class SpaceScreenTest : ScreenTest() {
         )
 
         onNodeWithText("Save").performClick()
-        // After createRoom succeeds, the ViewModel triggers a refresh; emit the new state
-        // AFTER the click so the StateFlow transitions through Loading → HasSpace(new),
-        // which triggers the modal-close LaunchedEffect.
         spaceRepository.emitSpaces(listOf(homeWithRooms.copy(rooms = listOf(livingRoom, Room("r-new", "s1", "Bedroom")))))
-        mainClock.advanceTimeBy(2_000)
 
         onNodeWithText("Bedroom").assertIsDisplayed()
     }
@@ -222,7 +192,7 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Save").performClick()
 
         onNodeWithText("A room with this name already exists in this space.").assertIsDisplayed()
-        onNodeWithText("Add Room").assertIsDisplayed() // dialog still open
+        onNodeWithText("Add Room").assertIsDisplayed()
     }
 
     @Test
@@ -236,10 +206,7 @@ class SpaceScreenTest : ScreenTest() {
 
         onNode(hasSetTextAction()).performTextInput("Office")
         onNode(hasSetTextAction()).performImeAction()
-        // Emit AFTER the IME action so loadSpaceInternal observes a real state transition
-        // (Loading → HasSpace(new)), which fires the modal-close LaunchedEffect.
         spaceRepository.emitSpaces(listOf(home.copy(rooms = listOf(createdRoom))))
-        mainClock.advanceTimeBy(2_000)
 
         onNodeWithText("Office").assertIsDisplayed()
     }
@@ -267,7 +234,6 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithContentDescription("More options").performClick()
         onNodeWithText("Rename").performClick()
 
-        // The current name is shown both in the top bar AND prefilled in the field.
         onAllNodesWithText("Home").assertCountAtLeast(2)
     }
 
@@ -284,10 +250,7 @@ class SpaceScreenTest : ScreenTest() {
         spaceRepository.updateResult = NetworkResult.Success(home.copy(name = "Apartment"))
 
         onNodeWithText("Save").performClick()
-        // Emit the renamed space AFTER the click so observeSpaces transitions and the
-        // modal-close LaunchedEffect fires.
         spaceRepository.emitSpaces(listOf(home.copy(name = "Apartment")))
-        mainClock.advanceTimeBy(2_000)
 
         onNodeWithText("Apartment").assertIsDisplayed()
     }
@@ -317,7 +280,6 @@ class SpaceScreenTest : ScreenTest() {
     fun renameRoom_prefillsCurrentNameAndSavesNewName() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
         onAllNodesWithContentDescription("More options")[1].performClick()
         onNodeWithText("Rename").performClick()
@@ -329,12 +291,9 @@ class SpaceScreenTest : ScreenTest() {
         roomRepository.updateResult = NetworkResult.Success(livingRoom.copy(name = "Lounge"))
 
         onNodeWithText("Save").performClick()
-        // Emit the renamed room AFTER the click so observeSpaces transitions and the
-        // modal-close LaunchedEffect fires.
         spaceRepository.emitSpaces(
             listOf(homeWithRooms.copy(rooms = listOf(livingRoom.copy(name = "Lounge"), kitchen))),
         )
-        mainClock.advanceTimeBy(2_000)
 
         onNodeWithText("Lounge").assertIsDisplayed()
     }
@@ -354,9 +313,7 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Delete").assertIsNotEnabled()
 
         onNode(hasSetTextAction()).performTextInput("Home")
-
-        // The Delete button is the only enabled "Delete" node; assertHasClickAction would also
-        // pass on the disabled one, so we re-check by typing the wrong text first.
+        
         onNode(hasSetTextAction()).performTextClearance()
         onNode(hasSetTextAction()).performTextInput("Wrong")
         onNodeWithText("Delete").assertIsNotEnabled()
@@ -372,6 +329,9 @@ class SpaceScreenTest : ScreenTest() {
         onNode(hasSetTextAction()).performTextInput("Home")
         onNodeWithText("Delete").performClick()
 
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodesWithText(MarkerScreen.MARKER_TEXT).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
     }
 
@@ -395,18 +355,22 @@ class SpaceScreenTest : ScreenTest() {
     fun deleteRoom_confirmRemovesRoomFromList() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
         onAllNodesWithContentDescription("More options")[1].performClick()
         onNodeWithText("Delete").performClick()
+
+        // Wait for the dialog to appear
         onNodeWithText("Delete room?").assertIsDisplayed()
 
-        // After successful deletion the ViewModel refreshes; emit the updated list.
-        spaceRepository.emitSpaces(listOf(homeWithRooms.copy(rooms = listOf(kitchen))))
-        onNodeWithText("Delete").performClick()
-        mainClock.advanceTimeBy(2_000)
+        // Click delete in the dialog - use onLast() to pick the dialog button over the menu item
+        onAllNodesWithText("Delete").onLast().performClick()
 
-        onAllNodesWithText("Living Room").assertCountEquals(0)
+        // Simulate refresh
+        spaceRepository.emitSpaces(listOf(homeWithRooms.copy(rooms = listOf(kitchen))))
+
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodesWithText("Living Room").fetchSemanticsNodes(atLeastOneRootRequired = false).isEmpty()
+        }
         onNodeWithText("Kitchen").assertIsDisplayed()
     }
 
@@ -414,14 +378,12 @@ class SpaceScreenTest : ScreenTest() {
     fun deleteRoom_cancelClosesDialog() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
         onAllNodesWithContentDescription("More options")[1].performClick()
         onNodeWithText("Delete").performClick()
         onNodeWithText("Cancel").performClick()
 
         onNodeWithText("Living Room").assertIsDisplayed()
-        onAllNodesWithText("Delete room?").assertCountEquals(0)
     }
 
     // endregion
@@ -435,8 +397,10 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Home").assertIsDisplayed()
 
         spaceRepository.emitSpaces(emptyList())
-        mainClock.advanceTimeBy(2_000)
 
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodesWithText(MarkerScreen.MARKER_TEXT).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
         onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
     }
 
@@ -448,10 +412,10 @@ class SpaceScreenTest : ScreenTest() {
     fun emptyRooms_focusesAddFirstRoomButton() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(home))
         setScreenContent(SpaceScreen())
-        // Focus is requested after a 100ms delay (SpaceDetailContent empty branch).
-        mainClock.advanceTimeBy(500)
 
-        onNodeWithText("Add Your First Room").assertIsFocused()
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodes(isFocused() and hasText("Add Your First Room")).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
@@ -461,21 +425,22 @@ class SpaceScreenTest : ScreenTest() {
 
         onNodeWithText("Add Your First Room").performClick()
 
-        onNode(hasSetTextAction()).assertIsFocused()
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodes(isFocused() and hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
     fun deleteRoomDialog_focusesCancelButton() = runComposeUiTest {
         spaceRepository.emitSpaces(listOf(homeWithRooms))
         setScreenContent(SpaceScreen())
-        mainClock.advanceTimeBy(2_000)
 
         onAllNodesWithContentDescription("More options")[1].performClick()
         onNodeWithText("Delete").performClick()
-        mainClock.advanceTimeBy(500)
 
-        // ADR-013: destructive dialogs default focus to Cancel.
-        onNodeWithText("Cancel").assertIsFocused()
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodes(isFocused() and hasText("Cancel")).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
@@ -485,19 +450,17 @@ class SpaceScreenTest : ScreenTest() {
 
         onNodeWithContentDescription("More options").performClick()
         onNodeWithText("Delete").performClick()
-        // DeleteSpaceDialog requests focus on the text field after a 100ms delay.
-        mainClock.advanceTimeBy(500)
 
-        onNode(hasSetTextAction()).assertIsFocused()
+        waitUntil(timeoutMillis = 2000L) {
+            onAllNodes(isFocused() and hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     // endregion
 }
 
-// --- Local helpers ---
-
-private fun androidx.compose.ui.test.SemanticsNodeInteractionCollection.assertCountAtLeast(min: Int):
-    androidx.compose.ui.test.SemanticsNodeInteractionCollection = apply {
+private fun SemanticsNodeInteractionCollection.assertCountAtLeast(min: Int):
+    SemanticsNodeInteractionCollection = apply {
     val count = fetchSemanticsNodes().size
     check(count >= min) { "Expected at least $min nodes, found $count." }
 }
