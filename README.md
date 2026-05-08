@@ -8,6 +8,12 @@
 
 **GreenPrint** is a high-performance spatial houseplant inventory system built with **Kotlin Multiplatform (KMP)** and **Quarkus**. It serves as a reference implementation for enterprise-grade cross-platform development, featuring shared business logic, reactive state management, and a visually immersive spatial UI.
 
+<p align="center">
+  <img src="docs/assets/screenshots/android-room-screen.png" width="30%" alt="Room Screen" />
+  <img src="docs/assets/screenshots/android-add-new-room-dialog.png" width="30%" alt="Add Room Dialog" />
+  <img src="docs/assets/screenshots/android-living-room-plant-list.png" width="30%" alt="Plant List" />
+</p>
+
 ---
 
 ## 🏗️ Architectural Overview
