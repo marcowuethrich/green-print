@@ -5,12 +5,25 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
+import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.notNullValue
+import org.hibernate.reactive.mutiny.Mutiny
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.ResourceLock
 
 @QuarkusTest
+@ResourceLock("database")
 class RoomPlantResourceTest {
+
+    @Inject
+    lateinit var sf: Mutiny.SessionFactory
+
+    @BeforeEach
+    fun setup() {
+        sf.clearDatabase()
+    }
 
     @Test
     @TestSecurity(user = "test-user", roles = ["user"])

@@ -25,11 +25,7 @@ class SpaceResourceTest {
 
     @BeforeEach
     fun setup() {
-        sf.withTransaction { _ ->
-            RoomEntity.deleteAll()
-                .flatMap { SpaceEntity.deleteAll() }
-                .flatMap { UserEntity.deleteAll() }
-        }.await().indefinitely()
+        sf.clearDatabase()
     }
 
     @Test
