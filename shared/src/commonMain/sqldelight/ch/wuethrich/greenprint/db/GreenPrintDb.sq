@@ -117,9 +117,10 @@ SELECT id FROM PlantEntity WHERE roomId = :roomId AND (
     syncStatus != 'S_SYNCED' OR id IN (SELECT plantId FROM WateringEventEntity WHERE syncStatus != 'S_SYNCED')
 );
 
-deleteSyncedPlantsByRoomId:
-DELETE FROM PlantEntity WHERE roomId = :roomId AND syncStatus = 'S_SYNCED'
-    AND id NOT IN (SELECT plantId FROM WateringEventEntity WHERE syncStatus != 'S_SYNCED');
+-- A refresh replaces the room's rows, except those it must keep: changed locally, or written while
+-- the refresh was on the way.
+deletePlantsByRoomIdExcept:
+DELETE FROM PlantEntity WHERE roomId = :roomId AND id NOT IN :keep;
 
 -- A watering is written through like a move: the plant's lastWateredDate moves at once, the
 -- watering waits in WateringEventEntity until the server has it.
@@ -142,8 +143,14 @@ JOIN PlantEntity ON PlantEntity.id = WateringEventEntity.plantId
 WHERE PlantEntity.roomId = ? AND WateringEventEntity.syncStatus != 'S_SYNCED'
 ORDER BY WateringEventEntity.timestamp;
 
+selectWateringEventById:
+SELECT * FROM WateringEventEntity WHERE id = ?;
+
 updateWateringEventSyncStatus:
 UPDATE WateringEventEntity SET syncStatus = :syncStatus WHERE id = :id;
+
+deleteWateringEvent:
+DELETE FROM WateringEventEntity WHERE id = ?;
 
 deleteWateringEventsByPlantId:
 DELETE FROM WateringEventEntity WHERE plantId = ?;

@@ -43,13 +43,18 @@ suspend fun ResponseException.toNetworkError(): NetworkError = when (response.st
 
     HttpStatusCode.Conflict -> NetworkError.Conflict
 
+    // A 400 always means the request is wrong, even without the server's error body.
     HttpStatusCode.BadRequest -> parseValidation()
-        ?: NetworkError.Unknown("Status: ${response.status}")
+        ?: NetworkError.Validation(code = "bad_request")
 
-    HttpStatusCode.InternalServerError -> NetworkError.ServerError
-
-    else -> NetworkError.Unknown("Status: ${response.status}")
+    else -> if (response.status.value >= SERVER_ERRORS) {
+        NetworkError.ServerError
+    } else {
+        NetworkError.Unknown("Status: ${response.status}")
+    }
 }
+
+private const val SERVER_ERRORS = 500
 
 private suspend fun ResponseException.parseValidation(): NetworkError.Validation? = try {
     val apiError: ApiError = response.body()

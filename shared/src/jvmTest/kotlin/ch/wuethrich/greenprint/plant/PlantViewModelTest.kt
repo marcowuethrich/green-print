@@ -8,31 +8,13 @@ import ch.wuethrich.greenprint.db.GreenPrintDb
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
 import ch.wuethrich.greenprint.db.PlantEntity
 import ch.wuethrich.greenprint.db.WateringEventEntity
-import ch.wuethrich.greenprint.model.CreatePlantRequest
+import ch.wuethrich.greenprint.model.ErrorReason
 import ch.wuethrich.greenprint.model.Plant
-import ch.wuethrich.greenprint.model.RecordWateringRequest
 import ch.wuethrich.greenprint.model.SyncStatus
 import ch.wuethrich.greenprint.model.UpdatePlantPositionRequest
 import ch.wuethrich.greenprint.repository.PlantRepositoryImpl
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockEngineConfig
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.engine.mock.respondError
-import io.ktor.client.plugins.DefaultRequest
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.TextContent
-import io.ktor.http.contentType
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -45,8 +27,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.io.IOException
-import kotlinx.serialization.json.Json
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -55,6 +35,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -68,6 +49,7 @@ class PlantViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val server = FakePlantServer(dispatcher)
     private val queries = inMemoryQueries()
+    private val clock = TestClock()
 
     @BeforeTest
     fun setUp() {
@@ -224,13 +206,175 @@ class PlantViewModelTest {
         assertEquals(NOW.toString(), shownFern(restarted).lastWateredDate)
     }
 
+    @Test
+    fun `a watering confirmed while a refresh is on the way is not undone by the refresh`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val listing = CompletableDeferred<Unit>()
+        server.holdNextList = listing
+        viewModel.retry()
+        advanceUntilIdle()
+
+        // The server lists the room before the watering, and answers only after it confirmed the watering.
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+        listing.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(SyncStatus.SYNCED, localWaterings().single().syncStatus)
+        assertEquals(NOW.toString(), localFern().lastWateredDate)
+        assertEquals(NOW.toString(), shownFern(viewModel).lastWateredDate)
+    }
+
+    @Test
+    fun `a move confirmed while a refresh is on the way is not undone by the refresh`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val listing = CompletableDeferred<Unit>()
+        server.holdNextList = listing
+        viewModel.retry()
+        advanceUntilIdle()
+
+        viewModel.movePlant(FERN.id, 0.2f, 0.8f)
+        advanceUntilIdle()
+        listing.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(SyncStatus.SYNCED, localFern().syncStatus)
+        assertEquals(0.2f to 0.8f, localFern().position())
+        assertEquals(0.2f to 0.8f, shownFern(viewModel).x to shownFern(viewModel).y)
+    }
+
+    @Test
+    fun `a watering the server turns down is dropped and the plant shows the server's date again`() =
+        runTest(dispatcher) {
+            val viewModel = openRoom()
+            server.online = false
+            viewModel.waterPlant(FERN.id)
+            advanceUntilIdle()
+
+            // A device clock far ahead: the server answers every send with 400 timestamp_invalid.
+            server.online = true
+            server.writeError = HttpStatusCode.BadRequest to "timestamp_invalid"
+            viewModel.retry()
+            advanceUntilIdle()
+            viewModel.retry()
+            advanceUntilIdle()
+
+            assertEquals(1, server.writeRequests)
+            assertTrue(localWaterings().isEmpty())
+            assertEquals(null, shownFern(viewModel).lastWateredDate)
+        }
+
+    @Test
+    fun `a watering turned down online is reported, dropped, and the plant refreshed`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val effects = collectEffects(viewModel)
+        server.writeError = HttpStatusCode.BadRequest to "timestamp_invalid"
+
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+
+        assertEquals(listOf<PlantUiEffect>(PlantUiEffect.Failed(ErrorReason.INVALID_INPUT)), effects)
+        assertTrue(localWaterings().isEmpty())
+        assertEquals(null, shownFern(viewModel).lastWateredDate)
+    }
+
+    @Test
+    fun `a watering answered with a conflict never names a plant name`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val effects = collectEffects(viewModel)
+        server.writeError = HttpStatusCode.Conflict to "watering_id_taken"
+
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+
+        assertEquals(listOf<PlantUiEffect>(PlantUiEffect.Failed(ErrorReason.UNKNOWN)), effects)
+        assertTrue(localWaterings().isEmpty())
+    }
+
+    @Test
+    fun `a watering that met a server fault is kept and sent again`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        server.writeError = HttpStatusCode.ServiceUnavailable to null
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+        assertEquals(SyncStatus.ERROR, localWaterings().single().syncStatus)
+
+        server.writeError = null
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(SyncStatus.SYNCED, localWaterings().single().syncStatus)
+        assertEquals(NOW.toString(), server.plants.getValue(FERN.id).lastWateredDate)
+    }
+
+    @Test
+    fun `a move the server turns down is given up and the plant goes back to the server's spot`() =
+        runTest(dispatcher) {
+            val viewModel = openRoom()
+            server.online = false
+            viewModel.movePlant(FERN.id, 0.2f, 0.8f)
+            advanceUntilIdle()
+
+            server.online = true
+            server.writeError = HttpStatusCode.Forbidden to null
+            viewModel.retry()
+            advanceUntilIdle()
+            viewModel.retry()
+            advanceUntilIdle()
+
+            assertEquals(1, server.writeRequests)
+            assertEquals(SyncStatus.SYNCED, localFern().syncStatus)
+            assertEquals(FERN.x to FERN.y, shownFern(viewModel).x to shownFern(viewModel).y)
+        }
+
+    @Test
+    fun `a watering on its way is not sent again by a refresh`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val accepted = CompletableDeferred<Unit>()
+        server.holdNextWrite = accepted
+
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+        viewModel.retry()
+        advanceUntilIdle()
+        accepted.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, server.writeRequests)
+        assertEquals(SyncStatus.SYNCED, localWaterings().single().syncStatus)
+    }
+
+    @Test
+    fun `moves reach the server one at a time and the latest wins`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val firstAccepted = CompletableDeferred<Unit>()
+        server.holdNextWrite = firstAccepted
+
+        viewModel.movePlant(FERN.id, 0.2f, 0.8f)
+        advanceUntilIdle()
+        clock.now += 1.seconds
+        viewModel.movePlant(FERN.id, 0.7f, 0.3f)
+        viewModel.retry()
+        advanceUntilIdle()
+        firstAccepted.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(UpdatePlantPositionRequest(0.2f, 0.8f), UpdatePlantPositionRequest(0.7f, 0.3f)),
+            server.positionUpdates,
+        )
+        assertEquals(0.7f to 0.3f, server.plants.getValue(FERN.id).let { it.x to it.y })
+        assertEquals(SyncStatus.SYNCED, localFern().syncStatus)
+        assertEquals(0.7f to 0.3f, shownFern(viewModel).x to shownFern(viewModel).y)
+    }
+
     private fun TestScope.openRoom(): PlantViewModel {
         val repository = PlantRepositoryImpl(
             httpClient = server.client(),
             baseUrl = BASE_URL,
             queries = queries,
             dbDispatcher = dispatcher,
-            clock = FixedClock,
+            clock = clock,
         )
         return PlantViewModel(repository).also {
             it.loadPlants(ROOM_ID)
@@ -273,91 +417,9 @@ class PlantViewModelTest {
         val NOW: Instant = Instant.parse("2026-10-30T10:00:00Z")
     }
 
-    private object FixedClock : Clock {
-        override fun now(): Instant = NOW
+    private class TestClock : Clock {
+        var now: Instant = NOW
+
+        override fun now(): Instant = now
     }
-}
-
-/** The plant endpoints the repository calls, backed by a map; offline, every call fails to connect. */
-private class FakePlantServer(private val dispatcher: CoroutineDispatcher) {
-    var online = true
-    val plants = linkedMapOf<String, Plant>()
-    val positionUpdates = mutableListOf<UpdatePlantPositionRequest>()
-    val created = mutableListOf<CreatePlantRequest>()
-    val waterings = mutableListOf<RecordWateringRequest>()
-
-    private val json = Json { ignoreUnknownKeys = true }
-
-    // The engine runs on the test's dispatcher, so advanceUntilIdle() also waits for the "network".
-    fun client(): HttpClient = HttpClient(
-        MockEngine(
-            MockEngineConfig().apply {
-                dispatcher = this@FakePlantServer.dispatcher
-                addHandler { request -> handle(request) }
-            },
-        ),
-    ) {
-        expectSuccess = true
-        install(ContentNegotiation) { json(json) }
-        install(DefaultRequest) { contentType(ContentType.Application.Json) }
-    }
-
-    private fun MockRequestHandleScope.handle(request: HttpRequestData): HttpResponseData {
-        if (!online) throw IOException("offline")
-        val path = request.url.encodedPath
-        return when {
-            request.method == HttpMethod.Get && path.endsWith("/plants") -> respondJson(plants.values.toList())
-            request.method == HttpMethod.Put && path.endsWith("/position") -> move(path, request)
-            request.method == HttpMethod.Post && path.endsWith("/waterings") -> water(path, request)
-            request.method == HttpMethod.Post && path.endsWith("/plants") -> create(path, request)
-            else -> respondError(HttpStatusCode.NotFound)
-        }
-    }
-
-    private fun MockRequestHandleScope.move(path: String, request: HttpRequestData): HttpResponseData {
-        val id = path.removePrefix("/plants/").removeSuffix("/position")
-        val move = json.decodeFromString<UpdatePlantPositionRequest>(request.bodyText())
-        positionUpdates += move
-        return update(id) { it.copy(x = move.x, y = move.y) }
-    }
-
-    // Like the server, a resent watering (same id) is recorded once.
-    private fun MockRequestHandleScope.water(path: String, request: HttpRequestData): HttpResponseData {
-        val id = path.removePrefix("/plants/").removeSuffix("/waterings")
-        val watering = json.decodeFromString<RecordWateringRequest>(request.bodyText())
-        if (waterings.none { it.id == watering.id }) waterings += watering
-        return update(id) { it.copy(lastWateredDate = watering.timestamp) }
-    }
-
-    private fun MockRequestHandleScope.create(path: String, request: HttpRequestData): HttpResponseData {
-        val create = json.decodeFromString<CreatePlantRequest>(request.bodyText())
-        created += create
-        val plant = Plant(
-            id = "plant-${plants.size + 1}",
-            roomId = path.removePrefix("/rooms/").removeSuffix("/plants"),
-            name = create.name,
-            wateringIntervalDays = create.wateringIntervalDays,
-            x = create.x,
-            y = create.y,
-        )
-        plants[plant.id] = plant
-        return respondJson(plant, HttpStatusCode.Created)
-    }
-
-    private fun MockRequestHandleScope.update(id: String, change: (Plant) -> Plant): HttpResponseData {
-        val updated = plants[id]?.let(change) ?: return respondError(HttpStatusCode.NotFound)
-        plants[id] = updated
-        return respondJson(updated)
-    }
-
-    private inline fun <reified T> MockRequestHandleScope.respondJson(
-        body: T,
-        status: HttpStatusCode = HttpStatusCode.OK,
-    ): HttpResponseData = respond(
-        content = json.encodeToString(body),
-        status = status,
-        headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
-    )
-
-    private fun HttpRequestData.bodyText(): String = (body as TextContent).text
 }

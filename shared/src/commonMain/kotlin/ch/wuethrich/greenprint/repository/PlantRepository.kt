@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.repository
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
@@ -38,16 +39,19 @@ interface PlantRepository {
     /**
      * Moves a plant on its room's blueprint. Write-through: the local row takes the new position,
      * marked [SyncStatus.PENDING], before the server is called, so the move survives being offline
-     * and restarting the app. A failed call leaves it [SyncStatus.ERROR]; the next [observePlants]
-     * of its room sends it again.
+     * and restarting the app. A call that got no answer, a server fault or an expired session leaves
+     * it [SyncStatus.ERROR], and the next [observePlants] of its room sends it again; a move the server
+     * turns down ([isRejection]) is given up, and the next refresh shows the server's position.
      */
     suspend fun updatePlantPosition(id: String, x: Float, y: Float): NetworkResult<Plant>
 
     /**
      * Waters a plant now. Write-through like a move: the watering is logged on the device
      * ([SyncStatus.PENDING]) and the plant's `lastWateredDate` moves before the server is called. A
-     * failed call leaves the watering [SyncStatus.ERROR]; the next [observePlants] of its room sends it
-     * again, under the same id, so the server stores it once.
+     * call that got no answer, a server fault or an expired session leaves the watering
+     * [SyncStatus.ERROR]; the next [observePlants] of its room sends it again, under the same id, so
+     * the server stores it once. A watering the server turns down ([isRejection]) is dropped, and the
+     * next refresh shows the server's date.
      */
     suspend fun waterPlant(id: String): NetworkResult<Plant>
     suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant>
@@ -61,6 +65,9 @@ class PlantRepositoryImpl(
     private val dbDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val clock: Clock = Clock.System,
 ) : PlantRepository {
+
+    private val writeLog = PlantWriteLog()
+    private val plantLocks = PlantLocks()
 
     override fun observePlants(roomId: String): Flow<NetworkResult<List<Plant>>> = flow {
         // 1. Emit from DB reactively
@@ -77,19 +84,19 @@ class PlantRepositoryImpl(
         coroutineScope {
             launch {
                 syncPendingChanges(roomId)
+                val refreshStart = writeLog.mark()
                 val result = httpClient.safeRequest<List<Plant>> {
                     url("$baseUrl/rooms/$roomId/plants")
                     method = HttpMethod.Get
                 }
                 if (result is NetworkResult.Success) {
                     queries.transaction {
-                        // A row still waiting for the server keeps its local state (last write wins).
-                        val unsyncedIds = queries
-                            .selectLocallyChangedPlantIdsByRoomId(roomId)
-                            .awaitAsList()
-                            .toSet()
-                        queries.deleteSyncedPlantsByRoomId(roomId)
-                        result.data.filterNot { it.id in unsyncedIds }.forEach { queries.cachePlant(it) }
+                        // A row still waiting for the server keeps its local state (last write wins), and
+                        // so does a row written while the request was on the way: the answer may predate it.
+                        val keep = queries.selectLocallyChangedPlantIdsByRoomId(roomId).awaitAsList().toSet() +
+                            writeLog.writtenSince(refreshStart)
+                        queries.deletePlantsByRoomIdExcept(roomId = roomId, keep = keep)
+                        result.data.filterNot { it.id in keep }.forEach { queries.cachePlant(it) }
                     }
                 }
             }
@@ -105,7 +112,7 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            queries.cachePlant(result.data)
+            queries.cachePlant(result.data, writeLog)
         }
 
         return result
@@ -119,7 +126,7 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            queries.cachePlant(result.data)
+            queries.cachePlant(result.data, writeLog)
         }
 
         return result
@@ -127,6 +134,7 @@ class PlantRepositoryImpl(
 
     override suspend fun updatePlantPosition(id: String, x: Float, y: Float): NetworkResult<Plant> {
         val movedAt = clock.now().toEpochMilliseconds()
+        writeLog.wrote(id)
         queries.updatePlantPosition(
             x = x.toDouble(),
             y = y.toDouble(),
@@ -134,13 +142,14 @@ class PlantRepositoryImpl(
             updatedAt = movedAt,
             id = id,
         )
-        return pushPosition(id, x, y, movedAt)
+        return pushPosition(id, movedAt)
     }
 
     override suspend fun waterPlant(id: String): NetworkResult<Plant> {
         val now = clock.now()
         val wateringId = Uuid.random().toString()
         val wateredAt = now.toString()
+        writeLog.wrote(id)
         queries.transaction {
             queries.insertWateringEvent(
                 id = wateringId,
@@ -151,7 +160,7 @@ class PlantRepositoryImpl(
             )
             queries.updatePlantLastWatered(lastWateredDate = wateredAt, id = id)
         }
-        return pushWatering(wateringId, id, wateredAt)
+        return pushWatering(wateringId, id)
     }
 
     override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> {
@@ -162,7 +171,7 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            queries.cachePlant(result.data)
+            queries.cachePlant(result.data, writeLog)
         }
 
         return result
@@ -175,60 +184,87 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            queries.forgetPlant(id)
+            queries.forgetPlant(id, writeLog)
         }
 
         return result
     }
 
-    /** Sends what this device changed in the room and the server has not confirmed: waterings, then moves. */
+    /**
+     * Sends what this device changed in the room and the server has not confirmed: waterings, then
+     * moves. A write still on its way waits for its answer first ([plantLocks]) and is not sent again.
+     */
     private suspend fun syncPendingChanges(roomId: String) {
         queries.selectUnsyncedWateringEventsByRoomId(roomId).awaitAsList().forEach { watering ->
-            val result = pushWatering(watering.id, watering.plantId, watering.timestamp)
-            // The plant is gone on the server: there is nothing left to water.
-            if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
-                queries.forgetPlant(watering.plantId)
-            }
+            pushWatering(watering.id, watering.plantId)
         }
         queries.selectUnsyncedPlantsByRoomId(roomId).awaitAsList().forEach { plant ->
-            val result = pushPosition(plant.id, plant.x.toFloat(), plant.y.toFloat(), plant.updatedAt)
-            // The plant is gone on the server: there is nothing left to move.
-            if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
-                queries.forgetPlant(plant.id)
-            }
+            pushPosition(plant.id, plant.updatedAt)
         }
     }
 
-    /** Sends one watering and settles it; the plant takes the server's date unless a newer one waits. */
-    private suspend fun pushWatering(wateringId: String, plantId: String, wateredAt: String): NetworkResult<Plant> {
-        val result = httpClient.safeRequest<Plant> {
-            url("$baseUrl/plants/$plantId/waterings")
-            method = HttpMethod.Post
-            setBody(RecordWateringRequest(id = wateringId, timestamp = wateredAt))
-        }
-        queries.transaction {
-            if (result is NetworkResult.Success) {
-                queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.SYNCED, id = wateringId)
-                queries.updatePlantLastWatered(lastWateredDate = queries.lastWatered(result.data), id = plantId)
-            } else {
-                queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.ERROR, id = wateringId)
+    /**
+     * Sends one watering, unless it was sent meanwhile, and settles it: confirmed, the plant takes the
+     * server's date unless a newer one waits; turned down, it is dropped.
+     */
+    private suspend fun pushWatering(wateringId: String, plantId: String): NetworkResult<Plant> =
+        plantLocks.withLock(plantId) {
+            val watering = queries.selectWateringEventById(wateringId).awaitAsOneOrNull()
+            if (watering == null || watering.syncStatus == SyncStatus.SYNCED) {
+                return@withLock queries.localPlant(plantId)
             }
-        }
-        return result
-    }
+            val result = httpClient.safeRequest<Plant> {
+                url("$baseUrl/plants/$plantId/waterings")
+                method = HttpMethod.Post
+                setBody(RecordWateringRequest(id = wateringId, timestamp = watering.timestamp))
+            }
+            writeLog.wrote(plantId)
+            when {
+                result is NetworkResult.Success -> queries.transaction {
+                    queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.SYNCED, id = wateringId)
+                    queries.updatePlantLastWatered(lastWateredDate = queries.lastWatered(result.data), id = plantId)
+                }
 
-    /** Sends the move stamped [movedAt] and settles its row, unless a newer move replaced it meanwhile. */
-    private suspend fun pushPosition(id: String, x: Float, y: Float, movedAt: Long): NetworkResult<Plant> {
+                result.isGone() -> queries.forgetPlant(plantId)
+
+                result.isRejected() -> queries.deleteWateringEvent(wateringId)
+
+                else -> queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.ERROR, id = wateringId)
+            }
+            result
+        }
+
+    /**
+     * Sends the plant's position if it is still the move stamped [movedAt] and unsent; a newer move
+     * sends itself. The answer settles the row unless a newer move replaced it meanwhile.
+     */
+    private suspend fun pushPosition(id: String, movedAt: Long): NetworkResult<Plant> = plantLocks.withLock(id) {
+        val plant = queries.selectPlantById(id).awaitAsOneOrNull()
+        if (plant == null || plant.updatedAt != movedAt || plant.syncStatus == SyncStatus.SYNCED) {
+            return@withLock queries.localPlant(id)
+        }
         val result = httpClient.safeRequest<Plant> {
             url("$baseUrl/plants/$id/position")
             method = HttpMethod.Put
-            setBody(UpdatePlantPositionRequest(x, y))
+            setBody(UpdatePlantPositionRequest(plant.x.toFloat(), plant.y.toFloat()))
         }
-        val status = if (result is NetworkResult.Success) SyncStatus.SYNCED else SyncStatus.ERROR
-        queries.updatePlantSyncStatusIfUnchanged(syncStatus = status, id = id, updatedAt = movedAt)
-        return result
+        writeLog.wrote(id)
+        if (result.isGone()) {
+            queries.forgetPlant(id)
+        } else {
+            // A move turned down is given up: the row counts as synced, so a refresh shows the server's.
+            val settled = result is NetworkResult.Success || result.isRejected()
+            val status = if (settled) SyncStatus.SYNCED else SyncStatus.ERROR
+            queries.updatePlantSyncStatusIfUnchanged(syncStatus = status, id = id, updatedAt = movedAt)
+        }
+        result
     }
 }
+
+// The plant is gone on the server: there is nothing left to water or move.
+private fun NetworkResult<*>.isGone(): Boolean = this is NetworkResult.Failure && error == NetworkError.NotFound
+
+private fun NetworkResult<*>.isRejected(): Boolean = this is NetworkResult.Failure && error.isRejection
 
 private suspend fun GreenPrintDbQueries.cachePlant(plant: Plant) {
     insertPlant(
@@ -255,6 +291,23 @@ private suspend fun GreenPrintDbQueries.lastWatered(plant: Plant): String? {
     val pending = selectUnsyncedWateringEventsByPlantId(plant.id).awaitAsList().map { it.timestamp }
     return (pending + listOfNotNull(plant.lastWateredDate)).maxByOrNull { Instant.parse(it) }
 }
+
+/** Caches [plant] as written by this device now, so a refresh already on its way keeps it. */
+private suspend fun GreenPrintDbQueries.cachePlant(plant: Plant, writeLog: PlantWriteLog) {
+    writeLog.wrote(plant.id)
+    cachePlant(plant)
+}
+
+/** Forgets a plant as written by this device now, so a refresh already on its way does not bring it back. */
+private suspend fun GreenPrintDbQueries.forgetPlant(id: String, writeLog: PlantWriteLog) {
+    writeLog.wrote(id)
+    forgetPlant(id)
+}
+
+/** The plant as this device has it, for a write that a newer one or an earlier send took care of. */
+private suspend fun GreenPrintDbQueries.localPlant(id: String): NetworkResult<Plant> =
+    selectPlantById(id).awaitAsOneOrNull()?.let { NetworkResult.Success(it.toDomain()) }
+        ?: NetworkResult.Failure(NetworkError.NotFound)
 
 /** Drops a plant and its waterings from the cache. */
 private suspend fun GreenPrintDbQueries.forgetPlant(id: String) {

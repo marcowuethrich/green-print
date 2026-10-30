@@ -11,7 +11,7 @@ import ch.wuethrich.greenprint.model.Plant
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
 import ch.wuethrich.greenprint.model.toErrorReason
 import ch.wuethrich.greenprint.repository.PlantRepository
-import kotlinx.coroutines.Job
+import ch.wuethrich.greenprint.repository.isRejection
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -47,9 +47,6 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
 
     private val selectedRoomId = MutableStateFlow<String?>(null)
     private val refreshSignal = MutableStateFlow(0)
-
-    // The position sync in flight per plant; a newer move of the same plant cancels it.
-    private val positionSyncs = mutableMapOf<String, Job>()
 
     private val _uiState = MutableStateFlow<PlantUiState>(PlantUiState.Loading)
     val uiState: StateFlow<PlantUiState> = _uiState.asStateFlow()
@@ -108,21 +105,17 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
 
     /**
      * Moves a plant on the blueprint, clamped into the room. The repository saves it on this device
-     * before it calls the server, so an offline move is kept and only reported.
+     * before it calls the server, so an offline move is kept and only reported. It sends a plant's
+     * moves one at a time, the latest last, so a move is never cancelled half-way here.
      */
     fun movePlant(id: String, x: Float, y: Float) {
         val position = BlueprintPosition(x, y).clamped()
-        positionSyncs.remove(id)?.cancel()
-        positionSyncs[id] = viewModelScope.launch {
+        viewModelScope.launch {
             val result = plantRepository.updatePlantPosition(id, position.x, position.y)
             if (result is NetworkResult.Failure) {
-                _uiEffect.emit(
-                    if (result.error == NetworkError.Connectivity) {
-                        PlantUiEffect.PositionSavedOffline
-                    } else {
-                        PlantUiEffect.Failed(result.error.toPlantReason())
-                    },
-                )
+                _uiEffect.emit(result.error.toWriteFailureEffect(offline = PlantUiEffect.PositionSavedOffline))
+                // The repository gave the move up: fetch the room anew to show the server's position.
+                if (result.error.isRejection) retry()
             }
         }
     }
@@ -148,8 +141,10 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
     fun waterPlant(plantId: String) {
         viewModelScope.launch {
             val result = plantRepository.waterPlant(plantId)
-            if (result is NetworkResult.Failure && result.error == NetworkError.Connectivity) {
-                _uiEffect.emit(PlantUiEffect.WateringSavedOffline)
+            if (result is NetworkResult.Failure) {
+                _uiEffect.emit(result.error.toWriteFailureEffect(offline = PlantUiEffect.WateringSavedOffline))
+                // The repository dropped the watering: fetch the room anew to show the server's date.
+                if (result.error.isRejection) retry()
             } else {
                 report(result, PlantChange.WATERED)
             }
@@ -188,3 +183,11 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
 
 // A plant's name is unique in its room, so a 409 on a plant names that.
 private fun NetworkError.toPlantReason(): ErrorReason = toErrorReason(conflict = ErrorReason.PLANT_NAME_TAKEN)
+
+// A move or watering carries no name, so a 409 on one is no name clash.
+private fun NetworkError.toWriteFailureEffect(offline: PlantUiEffect): PlantUiEffect =
+    if (this == NetworkError.Connectivity) {
+        offline
+    } else {
+        PlantUiEffect.Failed(toErrorReason(conflict = ErrorReason.UNKNOWN))
+    }
