@@ -1,9 +1,11 @@
 name: CI
 
 # Runs on the owner's self-hosted Mac mini (label mini-mac, a runner registered for this repository
-# alone, running as its own macOS user). The repository is public, so no job may ever run code from
-# a fork: every job is skipped for a pull request whose head is not a branch of this repository,
-# before a runner is picked. No pull_request_target, a read-only token, actions pinned by SHA.
+# alone, running as its own macOS user). The repository is public. What keeps a fork's code off the
+# runner is the repository's settings (approval for every outside contributor, interactions limited
+# to collaborators), because a pull request runs its own copy of this file. The `if:` on each job
+# guards against honest mistakes: it skips a pull request whose head is not a branch of this
+# repository. No pull_request_target, a read-only token, actions pinned by SHA.
 # docs/agentic/README.md, "Self-hosted CI on a public repository".
 on:
   push:

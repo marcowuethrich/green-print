@@ -167,16 +167,22 @@ The workflow runs on a small, reproducible setup:
 
 ### Self-hosted CI on a public repository
 
-A self-hosted runner on a public repository would run code from any fork's pull request. GreenPrint
-closes that (`.github/workflows/ci.yml`):
+A self-hosted runner on a public repository could run code from a stranger's fork. For a pull
+request GitHub runs the workflow file *from the pull request*, so a fork could simply delete any
+`if:` guard. What actually protects the runner is therefore the repository's settings; the workflow
+only adds a guard against honest mistakes:
 
-- Every job runs only for pushes to `main`, manual runs, and pull requests from branches of this
-  repository: `if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository`.
-  A fork's pull request skips every job before any runner is chosen.
-- The workflow never uses `pull_request_target`, the token is read-only, and actions are pinned by
-  commit SHA.
-- Repository settings: Actions require approval for every outside contributor, only GitHub's own
-  and explicitly allowed actions may run, and interactions are limited to collaborators.
+- **Approval for every outside contributor.** No workflow run from someone outside the repository
+  starts until the owner approves it, and the owner does not approve fork runs.
+- **Interactions limited to collaborators**, so strangers cannot open pull requests at all. GitHub
+  caps this setting at six months: it has to be renewed.
+- **Only GitHub's own and explicitly allowed actions** may run, and the default token is read-only.
+- **In the workflow** (`.github/workflows/ci.yml`): every job skips a pull request whose head is not
+  a branch of this repository (`github.event.pull_request.head.repo.full_name == github.repository`),
+  no `pull_request_target`, `permissions: contents: read`, actions pinned by commit SHA.
+- **On `main`**, a ruleset requires a pull request with both checks green and every review thread
+  resolved, blocks force pushes and deletion, and has no bypass, not even for admins: agents work
+  with the owner's credentials, so an admin bypass would be theirs too.
 
 ## Map of this repository
 
