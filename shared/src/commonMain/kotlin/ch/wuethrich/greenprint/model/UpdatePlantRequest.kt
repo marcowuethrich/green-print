@@ -11,5 +11,5 @@ data class UpdatePlantRequest(
     val wateringIntervalDays: Int,
     val photoUrl: String? = null,
     val x: Float = 0f,
-    val y: Float = 0f
+    val y: Float = 0f,
 )

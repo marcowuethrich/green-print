@@ -1,5 +1,6 @@
 package ch.wuethrich.greenprint
 
 import androidx.compose.ui.window.ComposeUIViewController
+import platform.UIKit.UIViewController
 
-fun MainViewController() = ComposeUIViewController { App() }
+fun mainViewController(): UIViewController = ComposeUIViewController { App() }

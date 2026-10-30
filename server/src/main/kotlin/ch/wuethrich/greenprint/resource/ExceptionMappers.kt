@@ -11,10 +11,11 @@ class PersistenceExceptionMapper : ExceptionMapper<PersistenceException> {
     override fun toResponse(e: PersistenceException): Response {
         val isConstraintViolation = generateSequence<Throwable>(e) { it.cause }
             .any { it is ConstraintViolationException }
-        return if (isConstraintViolation)
+        return if (isConstraintViolation) {
             Response.status(Response.Status.CONFLICT).build()
-        else
+        } else {
             Response.status(Response.Status.INTERNAL_SERVER_ERROR).build()
+        }
     }
 }
 

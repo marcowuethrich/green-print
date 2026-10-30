@@ -1,6 +1,12 @@
 package ch.wuethrich.greenprint.resource
 
-import ch.wuethrich.greenprint.model.*
+import ch.wuethrich.greenprint.model.ArchivePlantRequest
+import ch.wuethrich.greenprint.model.CreatePlantRequest
+import ch.wuethrich.greenprint.model.CreateRoomRequest
+import ch.wuethrich.greenprint.model.CreateSpaceRequest
+import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.Space
+import ch.wuethrich.greenprint.model.UpdatePlantRequest
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
@@ -20,6 +26,14 @@ class RoomPlantResourceTest {
     @Inject
     lateinit var sf: Mutiny.SessionFactory
 
+    private val snakePlant = CreatePlantRequest(
+        name = "Snake Plant",
+        species = "Sansevieria trifasciata",
+        potSize = "Medium",
+        soilType = "Cactus Mix",
+        wateringIntervalDays = 14,
+    )
+
     @BeforeEach
     fun setup() {
         sf.clearDatabase()
@@ -28,40 +42,11 @@ class RoomPlantResourceTest {
     @Test
     @TestSecurity(user = "test-user", roles = ["user"])
     fun `test create and get plants`() {
-        // 1. Create a space
-        val space = given()
-            .contentType(ContentType.JSON)
-            .body(CreateSpaceRequest(name = "Plant Space"))
-            .`when`().post("/spaces")
-            .then()
-            .statusCode(200)
-            .extract().`as`(Space::class.java)
-
-        val spaceId = space.id
-
-        // 2. Create a room
-        val roomResponse = given()
-            .contentType(ContentType.JSON)
-            .body(CreateRoomRequest(name = "Living Room"))
-            .`when`().post("/spaces/$spaceId/rooms")
-            .then()
-            .statusCode(201)
-            .extract().response()
-        
-        val roomId = roomResponse.path<String>("id")
-
-        // 3. Create a plant
-        val createRequest = CreatePlantRequest(
-            name = "Snake Plant",
-            species = "Sansevieria trifasciata",
-            potSize = "Medium",
-            soilType = "Cactus Mix",
-            wateringIntervalDays = 14
-        )
+        val roomId = createRoom()
 
         given()
             .contentType(ContentType.JSON)
-            .body(createRequest)
+            .body(snakePlant)
             .`when`().post("/rooms/$roomId/plants")
             .then()
             .statusCode(201)
@@ -72,7 +57,6 @@ class RoomPlantResourceTest {
             .body("soilType", `is`("Cactus Mix"))
             .body("wateringIntervalDays", `is`(14))
 
-        // 4. Get plants for the room
         given()
             .`when`().get("/rooms/$roomId/plants")
             .then()
@@ -84,48 +68,9 @@ class RoomPlantResourceTest {
     @Test
     @TestSecurity(user = "test-user", roles = ["user"])
     fun `test update and archive plant`() {
-        // 1. Create a space
-        val space = given()
-            .contentType(ContentType.JSON)
-            .body(CreateSpaceRequest(name = "Test Space"))
-            .`when`().post("/spaces")
-            .then()
-            .statusCode(200)
-            .extract().`as`(Space::class.java)
+        val roomId = createRoom()
+        val plantId = createPlant(roomId)
 
-        val spaceId = space.id
-
-        // 2. Create a room
-        val roomResponse = given()
-            .contentType(ContentType.JSON)
-            .body(CreateRoomRequest(name = "Living Room"))
-            .`when`().post("/spaces/$spaceId/rooms")
-            .then()
-            .statusCode(201)
-            .extract().response()
-        
-        val roomId = roomResponse.path<String>("id")
-
-        // 3. Create a plant
-        val createRequest = CreatePlantRequest(
-            name = "Snake Plant",
-            species = "Sansevieria trifasciata",
-            potSize = "Medium",
-            soilType = "Cactus Mix",
-            wateringIntervalDays = 14
-        )
-
-        val plant = given()
-            .contentType(ContentType.JSON)
-            .body(createRequest)
-            .`when`().post("/rooms/$roomId/plants")
-            .then()
-            .statusCode(201)
-            .extract().`as`(Plant::class.java)
-
-        val plantId = plant.id
-
-        // 4. Update the plant
         val updateRequest = UpdatePlantRequest(
             name = "Updated Snake Plant",
             species = "Dracaena trifasciata",
@@ -133,10 +78,9 @@ class RoomPlantResourceTest {
             soilType = "All-purpose Mix",
             wateringIntervalDays = 20,
             photoUrl = "https://example.com/photo.jpg",
-            x = 10f,
-            y = 20f
+            x = 0.1f,
+            y = 0.2f,
         )
-
         given()
             .contentType(ContentType.JSON)
             .body(updateRequest)
@@ -150,31 +94,55 @@ class RoomPlantResourceTest {
             .body("soilType", `is`("All-purpose Mix"))
             .body("wateringIntervalDays", `is`(20))
             .body("photoUrl", `is`("https://example.com/photo.jpg"))
-            .body("x", `is`(10.0f))
-            .body("y", `is`(20.0f))
+            .body("x", `is`(0.1f))
+            .body("y", `is`(0.2f))
 
-        // 5. Archive the plant
-        val archiveRequest = ArchivePlantRequest(reason = "DIED")
         given()
             .contentType(ContentType.JSON)
-            .body(archiveRequest)
+            .body(ArchivePlantRequest(reason = "DIED"))
             .`when`().post("/plants/$plantId/archive")
             .then()
             .statusCode(200)
             .body("archiveReason", `is`("DIED"))
             .body("archiveDate", notNullValue())
 
-        // 6. Verify it's gone from active list
+        // An archived plant leaves the active list but can still be deleted for good.
         given()
             .`when`().get("/rooms/$roomId/plants")
             .then()
             .statusCode(200)
             .body("size()", `is`(0))
-
-        // 7. Delete the plant (permanent)
         given()
             .`when`().delete("/plants/$plantId")
             .then()
             .statusCode(204)
     }
+
+    /** Creates a space with one room and returns the room's id. */
+    private fun createRoom(): String {
+        val space = given()
+            .contentType(ContentType.JSON)
+            .body(CreateSpaceRequest(name = "Plant Space"))
+            .`when`().post("/spaces")
+            .then()
+            .statusCode(200)
+            .extract().`as`(Space::class.java)
+
+        return given()
+            .contentType(ContentType.JSON)
+            .body(CreateRoomRequest(name = "Living Room"))
+            .`when`().post("/spaces/${space.id}/rooms")
+            .then()
+            .statusCode(201)
+            .extract().path("id")
+    }
+
+    private fun createPlant(roomId: String): String = given()
+        .contentType(ContentType.JSON)
+        .body(snakePlant)
+        .`when`().post("/rooms/$roomId/plants")
+        .then()
+        .statusCode(201)
+        .extract().`as`(Plant::class.java)
+        .id
 }

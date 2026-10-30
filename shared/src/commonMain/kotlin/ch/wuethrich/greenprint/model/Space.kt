@@ -9,5 +9,5 @@ data class Space(
     val icon: String? = null,
     val rooms: List<Room> = emptyList(),
     val syncStatus: String = "S_SYNCED",
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
 )

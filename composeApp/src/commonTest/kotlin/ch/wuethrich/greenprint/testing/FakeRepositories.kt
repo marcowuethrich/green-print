@@ -36,8 +36,7 @@ class FakeSpaceRepository : SpaceRepository {
 
     override fun observeSpaces(): Flow<NetworkResult<List<Space>>> = flow
 
-    override suspend fun getSpace(id: String): NetworkResult<Space> =
-        NetworkResult.Success(Space(id, "Space"))
+    override suspend fun getSpace(id: String): NetworkResult<Space> = NetworkResult.Success(Space(id, "Space"))
 
     override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> {
         val result = createResult ?: NetworkResult.Success(Space("new", name, icon))

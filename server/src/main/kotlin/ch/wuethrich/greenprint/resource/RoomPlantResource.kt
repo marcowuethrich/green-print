@@ -40,16 +40,13 @@ class RoomPlantResource {
 
     @POST
     @Path("/{roomId}/plants")
-    suspend fun createPlant(
-        @PathParam("roomId") roomId: UUID,
-        request: CreatePlantRequest
-    ): Response = withTx {
+    suspend fun createPlant(@PathParam("roomId") roomId: UUID, request: CreatePlantRequest): Response = withTx {
         val name = validateName(request.name)
         val user = userService.currentUser()
         val room = RoomEntity.find("id = ?1 and space.user = ?2", roomId, user)
             .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-        
+
         val plant = PlantEntity().apply {
             this.name = name
             this.species = request.species

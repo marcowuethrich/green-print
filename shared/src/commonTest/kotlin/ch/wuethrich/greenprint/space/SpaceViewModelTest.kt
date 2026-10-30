@@ -1,13 +1,16 @@
 package ch.wuethrich.greenprint.space
 
+import app.cash.sqldelight.Query
 import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlPreparedStatement
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
-import ch.wuethrich.greenprint.model.*
-import ch.wuethrich.greenprint.repository.PlantRepository
+import ch.wuethrich.greenprint.model.NetworkError
+import ch.wuethrich.greenprint.model.NetworkResult
+import ch.wuethrich.greenprint.model.Room
+import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.repository.RoomRepository
 import ch.wuethrich.greenprint.repository.SpaceRepository
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +22,11 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlin.test.*
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SpaceViewModelTest {
@@ -42,8 +49,7 @@ class SpaceViewModelTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = emptyList()),
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
 
         assertEquals(SpaceUiState.Loading, viewModel.uiState.first())
@@ -57,8 +63,7 @@ class SpaceViewModelTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = listOf(space)),
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -72,8 +77,7 @@ class SpaceViewModelTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(error = NetworkError.Connectivity),
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -86,8 +90,7 @@ class SpaceViewModelTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = emptyList(), createResult = created),
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
         testDispatcher.scheduler.advanceUntilIdle()
         assertEquals(SpaceUiState.Empty, viewModel.uiState.value)
@@ -105,8 +108,7 @@ class SpaceViewModelTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = emptyList()),
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -122,8 +124,7 @@ class SpaceViewModelTest {
         val viewModel = SpaceViewModel(
             spaceRepository = FakeSpaceRepository(spaces = listOf(space)),
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -138,15 +139,18 @@ class SpaceViewModelTest {
         var shouldFail = true
         val space = Space(id = "4", name = "Loft")
         val repo = object : FakeSpaceRepository(spaces = listOf(space)) {
-            override fun observeSpaces(): Flow<NetworkResult<List<Space>>> {
-                return if (shouldFail) flowOf(NetworkResult.Failure(NetworkError.ServerError)) else flowOf(NetworkResult.Success(spaces))
+            override fun observeSpaces(): Flow<NetworkResult<List<Space>>> = if (shouldFail) {
+                flowOf(
+                    NetworkResult.Failure(NetworkError.ServerError),
+                )
+            } else {
+                flowOf(NetworkResult.Success(spaces))
             }
         }
         val viewModel = SpaceViewModel(
             spaceRepository = repo,
             roomRepository = FakeRoomRepository(),
-            plantRepository = FakePlantRepository(),
-            queries = fakeQueries
+            queries = fakeQueries,
         )
         testDispatcher.scheduler.advanceUntilIdle()
         assertIs<SpaceUiState.Error>(viewModel.uiState.value)
@@ -162,14 +166,25 @@ class SpaceViewModelTest {
 // --- Test doubles ---
 
 private class FakeSqlDriver : SqlDriver {
-    override fun execute(identifier: Int?, sql: String, parameters: Int, binders: (SqlPreparedStatement.() -> Unit)?): QueryResult<Long> = QueryResult.Value(0L)
-    override fun <R> executeQuery(identifier: Int?, sql: String, mapper: (SqlCursor) -> QueryResult<R>, parameters: Int, binders: (SqlPreparedStatement.() -> Unit)?): QueryResult<R> = mapper(FakeSqlCursor())
+    override fun execute(
+        identifier: Int?,
+        sql: String,
+        parameters: Int,
+        binders: (SqlPreparedStatement.() -> Unit)?,
+    ): QueryResult<Long> = QueryResult.Value(0L)
+    override fun <R> executeQuery(
+        identifier: Int?,
+        sql: String,
+        mapper: (SqlCursor) -> QueryResult<R>,
+        parameters: Int,
+        binders: (SqlPreparedStatement.() -> Unit)?,
+    ): QueryResult<R> = mapper(FakeSqlCursor())
     override fun newTransaction(): QueryResult<Transacter.Transaction> = QueryResult.Value(FakeTransaction())
     override fun currentTransaction(): Transacter.Transaction? = null
-    override fun addListener(vararg queryKeys: String, listener: app.cash.sqldelight.Query.Listener) {}
-    override fun removeListener(vararg queryKeys: String, listener: app.cash.sqldelight.Query.Listener) {}
-    override fun notifyListeners(vararg queryKeys: String) {}
-    override fun close() {}
+    override fun addListener(vararg queryKeys: String, listener: Query.Listener) = Unit
+    override fun removeListener(vararg queryKeys: String, listener: Query.Listener) = Unit
+    override fun notifyListeners(vararg queryKeys: String) = Unit
+    override fun close() = Unit
 }
 
 private class FakeSqlCursor : SqlCursor {
@@ -197,7 +212,7 @@ private open class FakeSpaceRepository(
         return flowOf(NetworkResult.Success(spaces))
     }
 
-    override suspend fun getSpace(id: String): NetworkResult<Space> = 
+    override suspend fun getSpace(id: String): NetworkResult<Space> =
         NetworkResult.Success(spaces.first { it.id == id })
 
     override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> =
@@ -217,12 +232,4 @@ private class FakeRoomRepository : RoomRepository {
         NetworkResult.Success(Room(id = id, spaceId = "unknown", name = name, icon = icon))
 
     override suspend fun deleteRoom(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
-}
-
-private class FakePlantRepository : PlantRepository {
-    override fun observePlants(roomId: String): Flow<NetworkResult<List<Plant>>> = flowOf(NetworkResult.Success(emptyList()))
-    override suspend fun createPlant(roomId: String, request: CreatePlantRequest): NetworkResult<Plant> = NetworkResult.Failure(NetworkError.NotFound)
-    override suspend fun updatePlant(id: String, request: UpdatePlantRequest): NetworkResult<Plant> = NetworkResult.Failure(NetworkError.NotFound)
-    override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> = NetworkResult.Failure(NetworkError.NotFound)
-    override suspend fun deletePlant(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
 }

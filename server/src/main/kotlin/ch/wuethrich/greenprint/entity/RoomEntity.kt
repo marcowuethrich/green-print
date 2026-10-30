@@ -36,5 +36,5 @@ fun RoomEntity.toDto() = Room(
     id = id!!.toString(),
     spaceId = space.id!!.toString(),
     name = name,
-    icon = icon
+    icon = icon,
 )

@@ -31,10 +31,7 @@ class PlantResource {
 
     @PUT
     @Path("/{id}")
-    suspend fun updatePlant(
-        @PathParam("id") id: UUID,
-        request: UpdatePlantRequest
-    ): Response = withTx {
+    suspend fun updatePlant(@PathParam("id") id: UUID, request: UpdatePlantRequest): Response = withTx {
         val name = validateName(request.name)
         val user = userService.currentUser()
         val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
@@ -57,10 +54,7 @@ class PlantResource {
 
     @POST
     @Path("/{id}/archive")
-    suspend fun archivePlant(
-        @PathParam("id") id: UUID,
-        request: ArchivePlantRequest
-    ): Response = withTx {
+    suspend fun archivePlant(@PathParam("id") id: UUID, request: ArchivePlantRequest): Response = withTx {
         val user = userService.currentUser()
         val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
             .firstResult().awaitSuspending()

@@ -95,25 +95,22 @@ private val GreenColorScheme = lightColorScheme(
 
 @Composable
 private fun interFamily(): FontFamily = FontFamily(
-    Font(
-        Res.font.inter_variable,
-        FontWeight.Normal,
-        FontStyle.Normal,
-        FontVariation.Settings(FontVariation.weight(400))
-    ),
-    Font(
-        Res.font.inter_variable,
-        FontWeight.Medium,
-        FontStyle.Normal,
-        FontVariation.Settings(FontVariation.weight(500))
-    ),
-    Font(
-        Res.font.inter_variable,
-        FontWeight.SemiBold,
-        FontStyle.Normal,
-        FontVariation.Settings(FontVariation.weight(600))
-    ),
-    Font(Res.font.inter_variable, FontWeight.Bold, FontStyle.Normal, FontVariation.Settings(FontVariation.weight(700))),
+    listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold).map { weight ->
+        Font(
+            Res.font.inter_variable,
+            weight,
+            FontStyle.Normal,
+            FontVariation.Settings(FontVariation.weight(weight.weight)),
+        )
+    },
+)
+
+private fun FontFamily.style(weight: FontWeight, size: Int, lineHeight: Int, tracking: Float): TextStyle = TextStyle(
+    fontFamily = this,
+    fontWeight = weight,
+    fontSize = size.sp,
+    lineHeight = lineHeight.sp,
+    letterSpacing = tracking.sp,
 )
 
 @Composable
@@ -121,70 +118,25 @@ private fun appTypography(): Typography {
     val inter = interFamily()
     return Typography(
         // Display — page heroes (rare)
-        displayLarge = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Bold,
-            fontSize = 40.sp, lineHeight = 44.sp, letterSpacing = (-0.6).sp,
-        ),
-        displayMedium = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Bold,
-            fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp,
-        ),
-        displaySmall = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Bold,
-            fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp,
-        ),
+        displayLarge = inter.style(FontWeight.Bold, size = 40, lineHeight = 44, tracking = -0.6f),
+        displayMedium = inter.style(FontWeight.Bold, size = 36, lineHeight = 40, tracking = -0.5f),
+        displaySmall = inter.style(FontWeight.Bold, size = 30, lineHeight = 36, tracking = -0.4f),
         // Headlines
-        headlineLarge = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.SemiBold,
-            fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.4).sp,
-        ),
-        headlineMedium = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.SemiBold,
-            fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.3).sp,
-        ),
-        headlineSmall = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.SemiBold,
-            fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.3).sp,
-        ),
+        headlineLarge = inter.style(FontWeight.SemiBold, size = 28, lineHeight = 34, tracking = -0.4f),
+        headlineMedium = inter.style(FontWeight.SemiBold, size = 24, lineHeight = 30, tracking = -0.3f),
+        headlineSmall = inter.style(FontWeight.SemiBold, size = 22, lineHeight = 28, tracking = -0.3f),
         // Titles
-        titleLarge = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.SemiBold,
-            fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.2).sp,
-        ),
-        titleMedium = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.SemiBold,
-            fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = (-0.1).sp,
-        ),
-        titleSmall = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Medium,
-            fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.sp,
-        ),
+        titleLarge = inter.style(FontWeight.SemiBold, size = 20, lineHeight = 26, tracking = -0.2f),
+        titleMedium = inter.style(FontWeight.SemiBold, size = 16, lineHeight = 22, tracking = -0.1f),
+        titleSmall = inter.style(FontWeight.Medium, size = 14, lineHeight = 20, tracking = 0f),
         // Body
-        bodyLarge = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Normal,
-            fontSize = 16.sp, lineHeight = 26.sp, letterSpacing = 0.sp,
-        ),
-        bodyMedium = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Normal,
-            fontSize = 14.sp, lineHeight = 22.sp, letterSpacing = 0.sp,
-        ),
-        bodySmall = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Normal,
-            fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.1.sp,
-        ),
+        bodyLarge = inter.style(FontWeight.Normal, size = 16, lineHeight = 26, tracking = 0f),
+        bodyMedium = inter.style(FontWeight.Normal, size = 14, lineHeight = 22, tracking = 0f),
+        bodySmall = inter.style(FontWeight.Normal, size = 12, lineHeight = 18, tracking = 0.1f),
         // Labels
-        labelLarge = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Medium,
-            fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
-        ),
-        labelMedium = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Medium,
-            fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = 0.1.sp,
-        ),
-        labelSmall = TextStyle(
-            fontFamily = inter, fontWeight = FontWeight.Medium,
-            fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.2.sp,
-        ),
+        labelLarge = inter.style(FontWeight.Medium, size = 14, lineHeight = 20, tracking = 0.1f),
+        labelMedium = inter.style(FontWeight.Medium, size = 13, lineHeight = 18, tracking = 0.1f),
+        labelSmall = inter.style(FontWeight.Medium, size = 12, lineHeight = 16, tracking = 0.2f),
     )
 }
 
@@ -192,18 +144,15 @@ private fun appTypography(): Typography {
 //  Shapes — friendly geometry. All corners rounded, just at different scales.
 // ─────────────────────────────────────────────────────────────────────────────
 private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),   // chips, tags
-    small = RoundedCornerShape(12.dp),  // small buttons, compact inputs
-    medium = RoundedCornerShape(16.dp),  // inputs, dropdowns, alerts
-    large = RoundedCornerShape(24.dp),  // cards, sheets, modals
-    extraLarge = RoundedCornerShape(32.dp),  // hero cards, large surfaces
+    extraSmall = RoundedCornerShape(8.dp), // chips, tags
+    small = RoundedCornerShape(12.dp), // small buttons, compact inputs
+    medium = RoundedCornerShape(16.dp), // inputs, dropdowns, alerts
+    large = RoundedCornerShape(24.dp), // cards, sheets, modals
+    extraLarge = RoundedCornerShape(32.dp), // hero cards, large surfaces
 )
 
 @Composable
-fun GreenPrintTheme(
-    animationsEnabled: Boolean = true,
-    content: @Composable () -> Unit
-) {
+fun GreenPrintTheme(animationsEnabled: Boolean = true, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalAnimationsEnabled provides animationsEnabled) {
         MaterialTheme(
             colorScheme = GreenColorScheme,
@@ -244,6 +193,9 @@ object DesignSystem {
     val Space7 = 48.dp
     val Space8 = 64.dp
 
+    // Readable column width for screen content on wide windows.
+    val ContentMaxWidth = 600.dp
+
     // Stroke widths
     val StrokeThin = 1.dp
     val StrokeBase = 1.5.dp
@@ -268,9 +220,9 @@ object DesignSystem {
     // Motion — durations. Use Compose's spring(...) for press feedback at
     // call sites with stiffness = StiffnessMediumLow, dampingRatio = 0.85f.
     object Motion {
-        const val DurInstantMs = 100
-        const val DurQuickMs = 180
-        const val DurStandardMs = 250
-        const val DurSlowMs = 400
+        const val DURATION_INSTANT_MS = 100
+        const val DURATION_QUICK_MS = 180
+        const val DURATION_STANDARD_MS = 250
+        const val DURATION_SLOW_MS = 400
     }
 }

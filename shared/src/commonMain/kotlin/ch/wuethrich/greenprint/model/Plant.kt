@@ -18,5 +18,5 @@ data class Plant(
     val x: Float = 0f,
     val y: Float = 0f,
     val syncStatus: String = "S_SYNCED",
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
 )

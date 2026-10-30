@@ -1,6 +1,21 @@
 package ch.wuethrich.greenprint.space
 
-import androidx.compose.ui.test.*
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsNodeInteractionCollection
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
@@ -128,7 +143,9 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Leave Space").performClick()
 
         waitUntil(timeoutMillis = 2000L) {
-            onAllNodesWithText(MarkerScreen.MARKER_TEXT).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            onAllNodesWithText(
+                MarkerScreen.MARKER_TEXT,
+            ).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
         }
         onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
     }
@@ -176,7 +193,9 @@ class SpaceScreenTest : ScreenTest() {
         )
 
         onNodeWithText("Save").performClick()
-        spaceRepository.emitSpaces(listOf(homeWithRooms.copy(rooms = listOf(livingRoom, Room("r-new", "s1", "Bedroom")))))
+        spaceRepository.emitSpaces(
+            listOf(homeWithRooms.copy(rooms = listOf(livingRoom, Room("r-new", "s1", "Bedroom")))),
+        )
 
         onNodeWithText("Bedroom").assertIsDisplayed()
     }
@@ -314,7 +333,7 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Delete").assertIsNotEnabled()
 
         onNode(hasSetTextAction()).performTextInput("Home")
-        
+
         onNode(hasSetTextAction()).performTextClearance()
         onNode(hasSetTextAction()).performTextInput("Wrong")
         onNodeWithText("Delete").assertIsNotEnabled()
@@ -331,7 +350,9 @@ class SpaceScreenTest : ScreenTest() {
         onNodeWithText("Delete").performClick()
 
         waitUntil(timeoutMillis = 2000L) {
-            onAllNodesWithText(MarkerScreen.MARKER_TEXT).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            onAllNodesWithText(
+                MarkerScreen.MARKER_TEXT,
+            ).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
         }
         onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
     }
@@ -400,7 +421,9 @@ class SpaceScreenTest : ScreenTest() {
         spaceRepository.emitSpaces(emptyList())
 
         waitUntil(timeoutMillis = 2000L) {
-            onAllNodesWithText(MarkerScreen.MARKER_TEXT).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            onAllNodesWithText(
+                MarkerScreen.MARKER_TEXT,
+            ).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
         }
         onNodeWithText(MarkerScreen.MARKER_TEXT).assertIsDisplayed()
     }
@@ -460,8 +483,8 @@ class SpaceScreenTest : ScreenTest() {
     // endregion
 }
 
-private fun SemanticsNodeInteractionCollection.assertCountAtLeast(min: Int):
-    SemanticsNodeInteractionCollection = apply {
-    val count = fetchSemanticsNodes().size
-    check(count >= min) { "Expected at least $min nodes, found $count." }
-}
+private fun SemanticsNodeInteractionCollection.assertCountAtLeast(min: Int): SemanticsNodeInteractionCollection =
+    apply {
+        val count = fetchSemanticsNodes().size
+        check(count >= min) { "Expected at least $min nodes, found $count." }
+    }

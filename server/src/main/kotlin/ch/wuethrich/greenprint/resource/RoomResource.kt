@@ -28,10 +28,7 @@ class RoomResource {
 
     @PUT
     @Path("/{id}")
-    suspend fun updateRoom(
-        @PathParam("id") id: UUID,
-        request: UpdateRoomRequest
-    ): Response = withTx {
+    suspend fun updateRoom(@PathParam("id") id: UUID, request: UpdateRoomRequest): Response = withTx {
         val name = validateName(request.name)
         val user = userService.currentUser()
         val room = RoomEntity.find("id = ?1 and space.user = ?2", id, user)
@@ -44,9 +41,7 @@ class RoomResource {
 
     @DELETE
     @Path("/{id}")
-    suspend fun deleteRoom(
-        @PathParam("id") id: UUID
-    ): Response = withTx {
+    suspend fun deleteRoom(@PathParam("id") id: UUID): Response = withTx {
         val user = userService.currentUser()
         val room = RoomEntity.find("id = ?1 and space.user = ?2", id, user)
             .firstResult().awaitSuspending()

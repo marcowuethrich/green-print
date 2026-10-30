@@ -11,6 +11,7 @@ import io.smallrye.mutiny.Uni
 import io.vertx.ext.web.RoutingContext
 import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.ws.rs.core.Response
 import java.util.Optional
 
 @IfBuildProfile("dev")
@@ -23,10 +24,10 @@ class DevBearerAuthMechanism : HttpAuthenticationMechanism {
         identityProviderManager: IdentityProviderManager,
     ): Uni<SecurityIdentity> {
         val authHeader: String? = context.request().getHeader("Authorization")
-        
+
         val token = authHeader
-            ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
-            ?.substring(7)
+            ?.takeIf { it.startsWith(BEARER_PREFIX, ignoreCase = true) }
+            ?.substring(BEARER_PREFIX.length)
             ?: return Uni.createFrom().optional(Optional.empty())
 
         return Uni.createFrom().item(
@@ -34,15 +35,18 @@ class DevBearerAuthMechanism : HttpAuthenticationMechanism {
                 .setPrincipal { token }
                 .setAnonymous(false)
                 .addRole("user")
-                .build()
+                .build(),
         )
     }
 
-    override fun getCredentialTransport(context: RoutingContext): Uni<HttpCredentialTransport> =
-        Uni.createFrom().item(
-            HttpCredentialTransport(HttpCredentialTransport.Type.AUTHORIZATION, "Bearer")
-        )
+    override fun getCredentialTransport(context: RoutingContext): Uni<HttpCredentialTransport> = Uni.createFrom().item(
+        HttpCredentialTransport(HttpCredentialTransport.Type.AUTHORIZATION, "Bearer"),
+    )
 
     override fun getChallenge(context: RoutingContext): Uni<ChallengeData> =
-        Uni.createFrom().item(ChallengeData(401, "WWW-Authenticate", "Bearer"))
+        Uni.createFrom().item(ChallengeData(Response.Status.UNAUTHORIZED.statusCode, "WWW-Authenticate", "Bearer"))
+
+    private companion object {
+        const val BEARER_PREFIX = "Bearer "
+    }
 }

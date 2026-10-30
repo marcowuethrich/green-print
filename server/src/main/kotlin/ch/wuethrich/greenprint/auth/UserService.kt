@@ -26,10 +26,10 @@ class UserService {
         Panache.getSession().chain { session ->
             session.createNativeQuery<Void>(
                 "INSERT INTO users (id, external_id) VALUES (gen_random_uuid(), :externalId) " +
-                    "ON CONFLICT (external_id) DO NOTHING"
+                    "ON CONFLICT (external_id) DO NOTHING",
             ).setParameter("externalId", id).executeUpdate()
         }.awaitSuspending()
-        
+
         val user = UserEntity.find("externalId", id).firstResult().awaitSuspending()
             ?: error("user upsert returned no row for externalId=$id")
 

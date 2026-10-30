@@ -73,5 +73,5 @@ fun PlantEntity.toDto() = Plant(
     x = x,
     y = y,
     syncStatus = "S_SYNCED",
-    updatedAt = 0L
+    updatedAt = 0L,
 )

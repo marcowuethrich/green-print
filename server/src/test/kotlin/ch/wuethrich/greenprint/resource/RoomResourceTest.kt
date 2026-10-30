@@ -7,12 +7,11 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
+import jakarta.inject.Inject
 import org.hamcrest.Matchers.equalTo
+import org.hibernate.reactive.mutiny.Mutiny
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-
-import jakarta.inject.Inject
-import org.hibernate.reactive.mutiny.Mutiny
 import org.junit.jupiter.api.parallel.ResourceLock
 
 @QuarkusTest
@@ -228,14 +227,12 @@ class RoomResourceTest {
         return roomId
     }
 
-    private fun createSpace(name: String): String {
-        return given()
-            .contentType(ContentType.JSON)
-            .body("""{"name": "$name"}""")
-            .`when`().post("/spaces")
-            .then().statusCode(200)
-            .extract().path("id")
-    }
+    private fun createSpace(name: String): String = given()
+        .contentType(ContentType.JSON)
+        .body("""{"name": "$name"}""")
+        .`when`().post("/spaces")
+        .then().statusCode(200)
+        .extract().path("id")
 
     private fun createRoom(spaceId: String, name: String, icon: String? = null): String {
         val body = if (icon != null) {

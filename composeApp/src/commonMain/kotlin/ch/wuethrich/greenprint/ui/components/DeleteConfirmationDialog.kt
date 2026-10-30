@@ -1,67 +1,32 @@
 package ch.wuethrich.greenprint.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
-import greenprint.composeapp.generated.resources.Res
-import greenprint.composeapp.generated.resources.common_cancel
-import greenprint.composeapp.generated.resources.common_delete
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.yield
-import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
 
+/** Asks before a permanent delete; focus starts on Cancel, the safe choice (ADR-013). */
 @Composable
-fun DeleteConfirmationDialog(
-    title: String,
-    message: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun DeleteConfirmationDialog(title: String, message: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val cancelFocusRequester = remember { FocusRequester() }
-    val animationsEnabled = LocalAnimationsEnabled.current
-
-    LaunchedEffect(Unit) {
-        if (animationsEnabled) {
-            delay(100.milliseconds)
-        } else {
-            withFrameNanos { }
-        }
-        cancelFocusRequester.requestFocus()
-    }
+    RequestInitialFocus(cancelFocusRequester)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
-        title = { Text(title, fontWeight = FontWeight.Bold) },
+        title = { DialogTitle(title) },
         text = { Text(message) },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.focusRequester(cancelFocusRequester)
-                ) {
-                    Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Button(
-                    onClick = onConfirm,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text(stringResource(Res.string.common_delete), fontWeight = FontWeight.Bold)
-                }
-            }
+            CancelDeleteButtons(
+                onCancel = onDismiss,
+                onDelete = onConfirm,
+                cancelModifier = Modifier.focusRequester(cancelFocusRequester),
+            )
         },
-        dismissButton = null
+        dismissButton = null,
     )
 }

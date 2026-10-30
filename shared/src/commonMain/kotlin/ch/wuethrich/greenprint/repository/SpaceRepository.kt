@@ -3,6 +3,7 @@ package ch.wuethrich.greenprint.repository
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
+import ch.wuethrich.greenprint.db.RoomEntity
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Room
@@ -31,8 +32,8 @@ interface SpaceRepository {
 class SpaceRepositoryImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String,
-    private val queries: GreenPrintDbQueries
-) : BaseRepository(), SpaceRepository {
+    private val queries: GreenPrintDbQueries,
+) : SpaceRepository {
 
     override fun observeSpaces(): Flow<NetworkResult<List<Space>>> = flow {
         // 1. Emit from DB reactively
@@ -41,9 +42,7 @@ class SpaceRepositoryImpl(
             .mapToList(Dispatchers.Default)
             .map { entities ->
                 val spaces = entities.map { entity ->
-                    val rooms = queries.selectRoomsBySpaceId(entity.id).executeAsList().map { roomEntity ->
-                        Room(roomEntity.id, roomEntity.spaceId, roomEntity.name, roomEntity.icon, roomEntity.syncStatus, roomEntity.updatedAt)
-                    }
+                    val rooms = queries.selectRoomsBySpaceId(entity.id).executeAsList().map { it.toDomain() }
                     Space(entity.id, entity.name, entity.icon, rooms, entity.syncStatus, entity.updatedAt)
                 }
                 NetworkResult.Success(spaces)
@@ -62,7 +61,14 @@ class SpaceRepositoryImpl(
                         result.data.forEach { space ->
                             queries.insertSpace(space.id, space.name, space.icon, space.syncStatus, space.updatedAt)
                             space.rooms.forEach { room ->
-                                queries.insertRoom(room.id, space.id, room.name, room.icon, room.syncStatus, room.updatedAt)
+                                queries.insertRoom(
+                                    room.id,
+                                    space.id,
+                                    room.name,
+                                    room.icon,
+                                    room.syncStatus,
+                                    room.updatedAt,
+                                )
                             }
                         }
                     }
@@ -72,32 +78,21 @@ class SpaceRepositoryImpl(
         }
     }
 
-    private fun fetchSpacesFromCache(): List<Space> {
-        return queries.selectAllSpaces().executeAsList().map { entity ->
-            val rooms = queries.selectRoomsBySpaceId(entity.id).executeAsList().map { roomEntity ->
-                Room(roomEntity.id, roomEntity.spaceId, roomEntity.name, roomEntity.icon, roomEntity.syncStatus, roomEntity.updatedAt)
-            }
-            Space(entity.id, entity.name, entity.icon, rooms, entity.syncStatus, entity.updatedAt)
-        }
-    }
-
-    override suspend fun getSpace(id: String): NetworkResult<Space> {
-        return httpClient.safeRequest<Space> {
-            url("$baseUrl/spaces/$id")
-            method = HttpMethod.Get
-        }.also { result ->
-            if (result is NetworkResult.Success) {
-                val space = result.data
-                queries.insertSpace(space.id, space.name, space.icon, space.syncStatus, space.updatedAt)
-                space.rooms.forEach { room ->
-                    queries.insertRoom(room.id, space.id, room.name, room.icon, room.syncStatus, room.updatedAt)
-                }
+    override suspend fun getSpace(id: String): NetworkResult<Space> = httpClient.safeRequest<Space> {
+        url("$baseUrl/spaces/$id")
+        method = HttpMethod.Get
+    }.also { result ->
+        if (result is NetworkResult.Success) {
+            val space = result.data
+            queries.insertSpace(space.id, space.name, space.icon, space.syncStatus, space.updatedAt)
+            space.rooms.forEach { room ->
+                queries.insertRoom(room.id, space.id, room.name, room.icon, room.syncStatus, room.updatedAt)
             }
         }
     }
 
-    override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> {
-        return httpClient.safeRequest<Space> {
+    override suspend fun createSpace(name: String, icon: String?): NetworkResult<Space> =
+        httpClient.safeRequest<Space> {
             url("$baseUrl/spaces")
             method = HttpMethod.Post
             setBody(CreateSpaceRequest(name, icon))
@@ -107,10 +102,9 @@ class SpaceRepositoryImpl(
                 queries.insertSpace(space.id, space.name, space.icon, space.syncStatus, space.updatedAt)
             }
         }
-    }
 
-    override suspend fun updateSpace(id: String, name: String, icon: String?): NetworkResult<Space> {
-        return httpClient.safeRequest<Space> {
+    override suspend fun updateSpace(id: String, name: String, icon: String?): NetworkResult<Space> =
+        httpClient.safeRequest<Space> {
             url("$baseUrl/spaces/$id")
             method = HttpMethod.Put
             setBody(UpdateSpaceRequest(name, icon))
@@ -120,16 +114,15 @@ class SpaceRepositoryImpl(
                 queries.insertSpace(space.id, space.name, space.icon, space.syncStatus, space.updatedAt)
             }
         }
-    }
 
-    override suspend fun deleteSpace(id: String): NetworkResult<Unit> {
-        return httpClient.safeRequest<Unit> {
-            url("$baseUrl/spaces/$id")
-            method = HttpMethod.Delete
-        }.also { result ->
-            if (result is NetworkResult.Success) {
-                queries.deleteSpace(id)
-            }
+    override suspend fun deleteSpace(id: String): NetworkResult<Unit> = httpClient.safeRequest<Unit> {
+        url("$baseUrl/spaces/$id")
+        method = HttpMethod.Delete
+    }.also { result ->
+        if (result is NetworkResult.Success) {
+            queries.deleteSpace(id)
         }
     }
+
+    private fun RoomEntity.toDomain(): Room = Room(id, spaceId, name, icon, syncStatus, updatedAt)
 }

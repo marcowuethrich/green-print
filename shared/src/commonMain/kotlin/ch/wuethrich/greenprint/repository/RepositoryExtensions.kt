@@ -3,16 +3,17 @@ package ch.wuethrich.greenprint.repository
 import ch.wuethrich.greenprint.model.ApiError
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.plugins.*
-import io.ktor.client.request.*
-import io.ktor.http.*
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.request
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.io.IOException
 
-suspend inline fun <reified T> HttpClient.safeRequest(
-    block: HttpRequestBuilder.() -> Unit
-): NetworkResult<T> = try {
+suspend inline fun <reified T> HttpClient.safeRequest(block: HttpRequestBuilder.() -> Unit): NetworkResult<T> = try {
     val response = request(block)
     if (response.status == HttpStatusCode.NoContent) {
         @Suppress("UNCHECKED_CAST")
@@ -22,20 +23,29 @@ suspend inline fun <reified T> HttpClient.safeRequest(
     }
 } catch (e: ResponseException) {
     NetworkResult.Failure(e.toNetworkError())
-} catch (e: IOException) {
+} catch (_: IOException) {
     NetworkResult.Failure(NetworkError.Connectivity)
-} catch (e: Exception) {
+} catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+    // The network boundary: any other engine failure (a browser fetch error, a malformed body) becomes a
+    // result, and a cancelled caller stays cancelled instead of seeing a failure.
+    currentCoroutineContext().ensureActive()
     NetworkResult.Failure(NetworkError.Unknown(e.message))
 }
 
 suspend fun ResponseException.toNetworkError(): NetworkError = when (response.status) {
     HttpStatusCode.Unauthorized -> NetworkError.Unauthorized
+
     HttpStatusCode.Forbidden -> NetworkError.Forbidden
+
     HttpStatusCode.NotFound -> NetworkError.NotFound
+
     HttpStatusCode.Conflict -> NetworkError.Conflict
+
     HttpStatusCode.BadRequest -> parseValidation()
         ?: NetworkError.Unknown("Status: ${response.status}")
+
     HttpStatusCode.InternalServerError -> NetworkError.ServerError
+
     else -> NetworkError.Unknown("Status: ${response.status}")
 }
 

@@ -29,11 +29,9 @@ sealed interface PlantUiEffect {
     data class SuccessEffect(val message: String) : PlantUiEffect
 }
 
-class PlantViewModel(
-    private val plantRepository: PlantRepository
-) : ViewModel() {
+class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel() {
 
-    private val _roomId = MutableStateFlow<String?>(null)
+    private val selectedRoomId = MutableStateFlow<String?>(null)
 
     private val _uiState = MutableStateFlow<PlantUiState>(PlantUiState.Loading)
     val uiState: StateFlow<PlantUiState> = _uiState.asStateFlow()
@@ -43,13 +41,14 @@ class PlantViewModel(
 
     init {
         viewModelScope.launch {
-            _roomId.collectLatest { roomId ->
+            selectedRoomId.collectLatest { roomId ->
                 if (roomId != null) {
                     plantRepository.observePlants(roomId).collect { result ->
                         when (result) {
                             is NetworkResult.Success -> {
                                 _uiState.value = PlantUiState.Success(result.data)
                             }
+
                             is NetworkResult.Failure -> {
                                 // Only show error if we don't already have data (offline-first)
                                 if (_uiState.value !is PlantUiState.Success) {
@@ -64,7 +63,7 @@ class PlantViewModel(
     }
 
     fun loadPlants(roomId: String) {
-        _roomId.value = roomId
+        selectedRoomId.value = roomId
     }
 
     fun createPlant(roomId: String, name: String, species: String?, intervalDays: Int) {
@@ -72,12 +71,13 @@ class PlantViewModel(
             val request = CreatePlantRequest(
                 name = name,
                 species = species,
-                wateringIntervalDays = intervalDays
+                wateringIntervalDays = intervalDays,
             )
             when (val result = plantRepository.createPlant(roomId, request)) {
                 is NetworkResult.Success -> {
                     _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant added successfully"))
                 }
+
                 is NetworkResult.Failure -> {
                     _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
                 }
@@ -90,12 +90,13 @@ class PlantViewModel(
             val request = UpdatePlantRequest(
                 name = name,
                 species = species,
-                wateringIntervalDays = intervalDays
+                wateringIntervalDays = intervalDays,
             )
             when (val result = plantRepository.updatePlant(id, request)) {
                 is NetworkResult.Success -> {
                     _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant updated"))
                 }
+
                 is NetworkResult.Failure -> {
                     _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
                 }
@@ -110,6 +111,7 @@ class PlantViewModel(
                 is NetworkResult.Success -> {
                     _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant archived"))
                 }
+
                 is NetworkResult.Failure -> {
                     _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
                 }
@@ -123,6 +125,7 @@ class PlantViewModel(
                 is NetworkResult.Success -> {
                     _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant deleted"))
                 }
+
                 is NetworkResult.Failure -> {
                     _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
                 }
@@ -130,7 +133,8 @@ class PlantViewModel(
         }
     }
 
-    fun waterPlant(plantId: String) {
+    // Quick Water is a UI stub until watering events are persisted (inventory.md §5).
+    fun waterPlant(@Suppress("UnusedParameter") plantId: String) {
         viewModelScope.launch {
             _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant watered!"))
         }

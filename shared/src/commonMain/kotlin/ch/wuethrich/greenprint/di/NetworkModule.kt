@@ -25,7 +25,7 @@ import org.koin.dsl.module
 
 val networkModule = module {
     single<AuthRepository> { NoOpAuthRepository() }
-    
+
     single {
         val authRepository = get<AuthRepository>()
         HttpClient {

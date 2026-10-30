@@ -9,5 +9,5 @@ data class Room(
     val name: String,
     val icon: String? = null,
     val syncStatus: String = "S_SYNCED",
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
 )
