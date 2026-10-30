@@ -141,17 +141,23 @@ sequenceDiagram
 
     rect rgb(255, 250, 240)
     Note over R,A: Phase 2: Remote Sync
+    Note over R,A: One write per plant at a time: a move waits for the plant's write on its way,<br/>and is not sent at all if a newer move replaced it meanwhile
     R->>A: PUT /plants/{id}/position {x, y}
     alt 200 OK
         A-->>R: Updated plant
         R->>L: status=S_SYNCED if updatedAt is unchanged
-    else Offline or error
+    else Turned down (400, 403, 409)
+        R->>L: status=S_SYNCED if updatedAt is unchanged (the move is given up)
+        VM->>R: Refresh the room, which shows the server's position
+    else 404
+        R->>L: Forget the plant
+    else Offline, 5xx, 401 or an error the app cannot place
         R->>L: status=S_ERROR if updatedAt is unchanged
-        VM-->>UI: Snackbar "saved on this device"
+        VM-->>UI: Snackbar "saved on this device" when offline
     end
     end
 
-    Note over R,A: The next refresh of the room first resends every unsent watering and every row that is not S_SYNCED,<br/>then fetches; a row with an unconfirmed change is never overwritten by the server's copy.
+    Note over R,A: The next refresh of the room first resends every unsent watering and every row that is not S_SYNCED<br/>(one still on its way is waited for, not sent twice), then fetches. The answer replaces no row with an<br/>unconfirmed change, and no row this device wrote after the fetch began: the answer may predate it.
 ```
 
 ---
