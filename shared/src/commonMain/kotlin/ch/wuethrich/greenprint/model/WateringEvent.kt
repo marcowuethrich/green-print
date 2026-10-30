@@ -7,6 +7,6 @@ data class WateringEvent(
     val id: String,
     val plantId: String,
     val timestamp: String,
-    val syncStatus: String = "S_SYNCED",
+    val syncStatus: String = SyncStatus.SYNCED,
     val updatedAt: Long = 0L,
 )

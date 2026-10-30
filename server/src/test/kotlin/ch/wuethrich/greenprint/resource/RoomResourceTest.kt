@@ -189,6 +189,7 @@ class RoomResourceTest {
             .then().statusCode(404)
     }
 
+    // Every test seeds bob's data, but the call names the user and the names so the test reads on its own.
     @Suppress("SameParameterValue")
     private fun givenSpaceInDb(forUser: String, named: String): String {
         var spaceId = ""
@@ -205,6 +206,7 @@ class RoomResourceTest {
         return spaceId
     }
 
+    // Every test seeds bob's data, but the call names the user and the names so the test reads on its own.
     @Suppress("SameParameterValue")
     private fun givenRoomInDb(forUser: String, spaceNamed: String, roomNamed: String): String {
         var roomId = ""

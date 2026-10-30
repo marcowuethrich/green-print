@@ -8,6 +8,6 @@ data class Room(
     val spaceId: String,
     val name: String,
     val icon: String? = null,
-    val syncStatus: String = "S_SYNCED",
+    val syncStatus: String = SyncStatus.SYNCED,
     val updatedAt: Long = 0L,
 )

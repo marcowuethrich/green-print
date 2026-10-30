@@ -8,9 +8,10 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlPreparedStatement
 
 /**
- * The web build has no local cache yet: this driver persists nothing and every read is empty, so
- * the wasm app shows only what is on screen in the current session. A real cache needs SQLDelight's
- * sql.js web worker driver and an async-generated schema.
+ * The web build has no local cache yet: this driver persists nothing and every read is empty. The
+ * screens read from the cache only, so the wasm app shows no spaces, rooms or plants even when the
+ * server has them. A real cache needs SQLDelight's sql.js web worker driver and an async-generated
+ * schema.
  */
 actual class DriverFactory {
     actual fun createDriver(): SqlDriver = NoOpSqlDriver

@@ -16,6 +16,7 @@ import kotlinx.io.IOException
 suspend inline fun <reified T> HttpClient.safeRequest(block: HttpRequestBuilder.() -> Unit): NetworkResult<T> = try {
     val response = request(block)
     if (response.status == HttpStatusCode.NoContent) {
+        // A 204 has no body to decode; the callers that expect one ask for NetworkResult<Unit>.
         @Suppress("UNCHECKED_CAST")
         NetworkResult.Success(Unit as T)
     } else {

@@ -35,7 +35,7 @@ import greenprint.composeapp.generated.resources.plant_water_action
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-/** The archive reasons the server accepts (inventory.md). */
+/** The archive reasons the plant menu offers (inventory.md §5). */
 private const val ARCHIVE_DIED = "DIED"
 private const val ARCHIVE_GIFTED = "GIFTED"
 

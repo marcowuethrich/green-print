@@ -222,7 +222,6 @@ class SpaceResourceTest {
             .extract().path("id")
     }
 
-    @Suppress("SameParameterValue")
     private fun givenSpaceInDb(forUser: String, named: String): String {
         var spaceId = ""
         sf.withTransaction { _ ->
