@@ -65,4 +65,16 @@
     <string name="plant_delete_dialog_title">Delete plant?</string>
     <string name="plant_delete_dialog_message">Are you sure you want to permanently delete \'%1$s\'?</string>
     <string name="plant_no_plants">No plants in this room yet.</string>
+
+    <!-- Plant — spatial blueprint -->
+    <string name="plant_view_list">List</string>
+    <string name="plant_view_blueprint">Blueprint</string>
+    <string name="plant_blueprint_hint">Drag a plant to where it stands, or select it and use the arrow keys. Tap a plant to edit it.</string>
+    <string name="plant_blueprint_marker">%1$s on the room blueprint</string>
+    <string name="plant_blueprint_not_synced">Not saved to the server yet</string>
+    <string name="plant_blueprint_move_left">Move left</string>
+    <string name="plant_blueprint_move_right">Move right</string>
+    <string name="plant_blueprint_move_up">Move up</string>
+    <string name="plant_blueprint_move_down">Move down</string>
+    <string name="plant_position_saved_offline">Position saved on this device. It syncs when you are back online.</string>
 </resources>

@@ -9,6 +9,7 @@ import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Plant
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
 import ch.wuethrich.greenprint.repository.PlantRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 sealed interface PlantUiState {
@@ -27,11 +30,18 @@ sealed interface PlantUiState {
 sealed interface PlantUiEffect {
     data class ValidationError(val message: String) : PlantUiEffect
     data class SuccessEffect(val message: String) : PlantUiEffect
+
+    /** A blueprint move is saved on this device only; the next refresh sends it to the server. */
+    data object PositionSavedOffline : PlantUiEffect
 }
 
 class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel() {
 
     private val selectedRoomId = MutableStateFlow<String?>(null)
+    private val refreshSignal = MutableStateFlow(0)
+
+    // The position sync in flight per plant; a newer move of the same plant cancels it.
+    private val positionSyncs = mutableMapOf<String, Job>()
 
     private val _uiState = MutableStateFlow<PlantUiState>(PlantUiState.Loading)
     val uiState: StateFlow<PlantUiState> = _uiState.asStateFlow()
@@ -41,24 +51,8 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
 
     init {
         viewModelScope.launch {
-            selectedRoomId.collectLatest { roomId ->
-                if (roomId != null) {
-                    plantRepository.observePlants(roomId).collect { result ->
-                        when (result) {
-                            is NetworkResult.Success -> {
-                                _uiState.value = PlantUiState.Success(result.data)
-                            }
-
-                            is NetworkResult.Failure -> {
-                                // Only show error if we don't already have data (offline-first)
-                                if (_uiState.value !is PlantUiState.Success) {
-                                    _uiState.value = PlantUiState.Error(result.error.toMessage())
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            combine(selectedRoomId.filterNotNull(), refreshSignal) { roomId, _ -> roomId }
+                .collectLatest { roomId -> observePlants(roomId) }
         }
     }
 
@@ -66,12 +60,22 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
         selectedRoomId.value = roomId
     }
 
+    /** Observes the room again: unsent moves go to the server and the list is fetched anew. */
+    fun retry() {
+        refreshSignal.value++
+    }
+
+    /** Adds a plant; it lands on the blueprint spot farthest from the plants already there. */
     fun createPlant(roomId: String, name: String, species: String?, intervalDays: Int) {
+        val occupied = currentPlants().map { BlueprintPosition(it.x, it.y) }
+        val position = BlueprintLayout.nextFreePosition(occupied)
         viewModelScope.launch {
             val request = CreatePlantRequest(
                 name = name,
                 species = species,
                 wateringIntervalDays = intervalDays,
+                x = position.x,
+                y = position.y,
             )
             when (val result = plantRepository.createPlant(roomId, request)) {
                 is NetworkResult.Success -> {
@@ -85,14 +89,20 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
         }
     }
 
-    fun updatePlant(id: String, name: String, species: String?, intervalDays: Int) {
+    /** Edits the form fields of [plant]; everything the form does not show is kept as it is. */
+    fun updatePlant(plant: Plant, name: String, species: String?, intervalDays: Int) {
         viewModelScope.launch {
             val request = UpdatePlantRequest(
                 name = name,
                 species = species,
+                potSize = plant.potSize,
+                soilType = plant.soilType,
                 wateringIntervalDays = intervalDays,
+                photoUrl = plant.photoUrl,
+                x = plant.x,
+                y = plant.y,
             )
-            when (val result = plantRepository.updatePlant(id, request)) {
+            when (val result = plantRepository.updatePlant(plant.id, request)) {
                 is NetworkResult.Success -> {
                     _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant updated"))
                 }
@@ -100,6 +110,27 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
                 is NetworkResult.Failure -> {
                     _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
                 }
+            }
+        }
+    }
+
+    /**
+     * Moves a plant on the blueprint, clamped into the room. The repository saves it on this device
+     * before it calls the server, so an offline move is kept and only reported.
+     */
+    fun movePlant(id: String, x: Float, y: Float) {
+        val position = BlueprintPosition(x, y).clamped()
+        positionSyncs.remove(id)?.cancel()
+        positionSyncs[id] = viewModelScope.launch {
+            val result = plantRepository.updatePlantPosition(id, position.x, position.y)
+            if (result is NetworkResult.Failure) {
+                _uiEffect.emit(
+                    if (result.error == NetworkError.Connectivity) {
+                        PlantUiEffect.PositionSavedOffline
+                    } else {
+                        PlantUiEffect.ValidationError(result.error.toMessage())
+                    },
+                )
             }
         }
     }
@@ -140,14 +171,33 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
         }
     }
 
-    private fun NetworkError.toMessage(): String = when (this) {
-        NetworkError.Unauthorized -> "Please log in again."
-        NetworkError.Forbidden -> "You don't have permission."
-        NetworkError.NotFound -> "Plant not found."
-        NetworkError.Conflict -> "This plant already exists."
-        NetworkError.ServerError -> "Server error."
-        NetworkError.Connectivity -> "Check your connection."
-        is NetworkError.Validation -> "Invalid input."
-        is NetworkError.Unknown -> message ?: "Error occurred."
+    private suspend fun observePlants(roomId: String) {
+        plantRepository.observePlants(roomId).collect { result ->
+            when (result) {
+                is NetworkResult.Success -> {
+                    _uiState.value = PlantUiState.Success(result.data)
+                }
+
+                is NetworkResult.Failure -> {
+                    // Only show error if we don't already have data (offline-first)
+                    if (_uiState.value !is PlantUiState.Success) {
+                        _uiState.value = PlantUiState.Error(result.error.toMessage())
+                    }
+                }
+            }
+        }
     }
+
+    private fun currentPlants(): List<Plant> = (_uiState.value as? PlantUiState.Success)?.plants.orEmpty()
+}
+
+private fun NetworkError.toMessage(): String = when (this) {
+    NetworkError.Unauthorized -> "Please log in again."
+    NetworkError.Forbidden -> "You don't have permission."
+    NetworkError.NotFound -> "Plant not found."
+    NetworkError.Conflict -> "This plant already exists."
+    NetworkError.ServerError -> "Server error."
+    NetworkError.Connectivity -> "Check your connection."
+    is NetworkError.Validation -> "Invalid input."
+    is NetworkError.Unknown -> message ?: "Error occurred."
 }
