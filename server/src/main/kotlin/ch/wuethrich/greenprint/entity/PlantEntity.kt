@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.entity
 
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.SyncStatus
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheCompanionBase
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.Column
@@ -72,6 +73,6 @@ fun PlantEntity.toDto() = Plant(
     archiveReason = archiveReason,
     x = x,
     y = y,
-    syncStatus = "S_SYNCED",
+    syncStatus = SyncStatus.SYNCED,
     updatedAt = 0L,
 )

@@ -4,6 +4,7 @@ import ch.wuethrich.greenprint.auth.UserService
 import ch.wuethrich.greenprint.entity.PlantEntity
 import ch.wuethrich.greenprint.entity.toDto
 import ch.wuethrich.greenprint.model.ArchivePlantRequest
+import ch.wuethrich.greenprint.model.UpdatePlantPositionRequest
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.coroutines.awaitSuspending
@@ -33,10 +34,9 @@ class PlantResource {
     @Path("/{id}")
     suspend fun updatePlant(@PathParam("id") id: UUID, request: UpdatePlantRequest): Response = withTx {
         val name = validateName(request.name)
-        val user = userService.currentUser()
-        val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
-            .firstResult().awaitSuspending()
-            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+        val x = validatePosition(request.x, "x")
+        val y = validatePosition(request.y, "y")
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
 
         plant.apply {
             this.name = name
@@ -45,9 +45,23 @@ class PlantResource {
             this.soilType = request.soilType
             this.wateringIntervalDays = request.wateringIntervalDays
             this.photoUrl = request.photoUrl
-            this.x = request.x
-            this.y = request.y
+            this.x = x
+            this.y = y
         }
+
+        Response.ok(plant.toDto()).build()
+    }
+
+    /** Moves a plant on its room's blueprint (spatial_blueprint.md §2). */
+    @PUT
+    @Path("/{id}/position")
+    suspend fun updatePosition(@PathParam("id") id: UUID, request: UpdatePlantPositionRequest): Response = withTx {
+        val x = validatePosition(request.x, "x")
+        val y = validatePosition(request.y, "y")
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
+
+        plant.x = x
+        plant.y = y
 
         Response.ok(plant.toDto()).build()
     }
@@ -55,10 +69,7 @@ class PlantResource {
     @POST
     @Path("/{id}/archive")
     suspend fun archivePlant(@PathParam("id") id: UUID, request: ArchivePlantRequest): Response = withTx {
-        val user = userService.currentUser()
-        val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
-            .firstResult().awaitSuspending()
-            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
 
         plant.archiveDate = Instant.now()
         plant.archiveReason = request.reason
@@ -69,11 +80,19 @@ class PlantResource {
     @DELETE
     @Path("/{id}")
     suspend fun deletePlant(@PathParam("id") id: UUID): Response = withTx {
-        val user = userService.currentUser()
-        val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
-            .firstResult().awaitSuspending()
-            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
         plant.deleteDirectly(plant.id)
         Response.noContent().build()
     }
+
+    /** The plant, if it lives in one of the current user's spaces. */
+    private suspend fun findOwnedPlant(id: UUID): PlantEntity? {
+        val user = userService.currentUser()
+        return PlantEntity
+            .find("id = ?1 and room.space.user = ?2", id, user)
+            .firstResult()
+            .awaitSuspending()
+    }
+
+    private fun notFound(): Response = Response.status(Response.Status.NOT_FOUND).build()
 }

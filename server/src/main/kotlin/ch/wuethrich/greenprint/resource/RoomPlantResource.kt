@@ -42,6 +42,8 @@ class RoomPlantResource {
     @Path("/{roomId}/plants")
     suspend fun createPlant(@PathParam("roomId") roomId: UUID, request: CreatePlantRequest): Response = withTx {
         val name = validateName(request.name)
+        val x = validatePosition(request.x, "x")
+        val y = validatePosition(request.y, "y")
         val user = userService.currentUser()
         val room = RoomEntity.find("id = ?1 and space.user = ?2", roomId, user)
             .firstResult().awaitSuspending()
@@ -54,8 +56,8 @@ class RoomPlantResource {
             this.soilType = request.soilType
             this.wateringIntervalDays = request.wateringIntervalDays
             this.room = room
-            this.x = request.x
-            this.y = request.y
+            this.x = x
+            this.y = y
         }
         plant.persist<PlantEntity>().awaitSuspending()
         Response.status(Response.Status.CREATED).entity(plant.toDto()).build()
