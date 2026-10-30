@@ -33,6 +33,8 @@ class BashRules(unittest.TestCase):
             "git push --no-verify",
             "cd app && git push origin main",
             "bash -c 'git push origin main'",
+            "git status\ngit push origin main",
+            "cd /tmp\ngit reset --hard",
         ]:
             with self.subTest(command=command):
                 self.assertTrue(self.denied(command))
@@ -40,6 +42,11 @@ class BashRules(unittest.TestCase):
     def test_bare_push_depends_on_the_branch(self):
         self.assertTrue(self.denied("git push", branch="main"))
         self.assertFalse(self.denied("git push", branch="feat/x"))
+
+    def test_head_resolves_to_the_branch(self):
+        self.assertTrue(self.denied("git push -u origin HEAD", branch="main"))
+        self.assertTrue(self.denied("git push origin @", branch="main"))
+        self.assertFalse(self.denied("git push -u origin HEAD", branch="feat/x"))
 
     def test_normal_pushes_pass(self):
         for command in [
@@ -53,6 +60,8 @@ class BashRules(unittest.TestCase):
         for command in [
             "git commit --no-verify -m wip",
             "git commit -n -m wip",
+            "git commit -anm wip",
+            "git clean --force -d",
             "git -c core.hooksPath=/dev/null commit -m x",
             "git config core.hooksPath .nohooks",
             "git reset --hard origin/main",
@@ -71,6 +80,7 @@ class BashRules(unittest.TestCase):
             "docker volume rm greenprint_pg",
             "docker compose down -v",
             "docker system prune -a --volumes",
+            'docker compose exec postgres psql -c "TRUNCATE plants"',
         ]:
             with self.subTest(command=command):
                 self.assertTrue(self.denied(command))
@@ -96,6 +106,10 @@ class BashRules(unittest.TestCase):
             "git checkout -b feat/42-blueprint",
             "git reset --soft HEAD~1",
             "atlas migrate apply --url $DB_URL",
+            "git restore --staged .",
+            "git commit -am 'fix: wording'",
+            "cat > notes.md <<'EOF'\nnever git push origin main\nEOF\ngit status",
+            'git commit -m "first line\nsecond line mentions git reset --hard"',
         ]:
             with self.subTest(command=command):
                 self.assertFalse(self.denied(command))
