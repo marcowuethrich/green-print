@@ -4,6 +4,7 @@ import ch.wuethrich.greenprint.entity.PlantEntity
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.UserEntity
+import ch.wuethrich.greenprint.entity.WateringEventEntity
 import org.hibernate.reactive.mutiny.Mutiny
 
 /**
@@ -12,8 +13,9 @@ import org.hibernate.reactive.mutiny.Mutiny
  */
 fun Mutiny.SessionFactory.clearDatabase() {
     withTransaction { _ ->
-        PlantEntity
+        WateringEventEntity
             .deleteAll()
+            .flatMap { PlantEntity.deleteAll() }
             .flatMap { RoomEntity.deleteAll() }
             .flatMap { SpaceEntity.deleteAll() }
             .flatMap { UserEntity.deleteAll() }

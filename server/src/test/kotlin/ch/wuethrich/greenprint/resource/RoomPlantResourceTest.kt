@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.model.ArchivePlantRequest
+import ch.wuethrich.greenprint.model.ArchiveReason
 import ch.wuethrich.greenprint.model.CreatePlantRequest
 import ch.wuethrich.greenprint.model.CreateRoomRequest
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
@@ -116,6 +117,68 @@ class RoomPlantResourceTest {
             .`when`().delete("/plants/$plantId")
             .then()
             .statusCode(204)
+    }
+
+    @Test
+    @TestSecurity(user = "test-user", roles = ["user"])
+    fun `a watering interval outside 1 to 365 days returns 400`() {
+        val roomId = createRoom()
+
+        listOf(0, 366).forEach { days ->
+            given()
+                .contentType(ContentType.JSON)
+                .body(snakePlant.copy(wateringIntervalDays = days))
+                .`when`().post("/rooms/$roomId/plants")
+                .then()
+                .statusCode(400)
+                .body("code", `is`("interval_out_of_range"))
+                .body("field", `is`("wateringIntervalDays"))
+        }
+        val plantId = createPlant(roomId)
+        given()
+            .contentType(ContentType.JSON)
+            .body(UpdatePlantRequest(name = "Snake Plant", wateringIntervalDays = -1))
+            .`when`().put("/plants/$plantId")
+            .then()
+            .statusCode(400)
+            .body("code", `is`("interval_out_of_range"))
+    }
+
+    @Test
+    @TestSecurity(user = "test-user", roles = ["user"])
+    fun `the interval's bounds are valid`() {
+        val roomId = createRoom()
+
+        listOf(1, 365).forEachIndexed { index, days ->
+            given()
+                .contentType(ContentType.JSON)
+                .body(snakePlant.copy(name = "Plant $index", wateringIntervalDays = days))
+                .`when`().post("/rooms/$roomId/plants")
+                .then()
+                .statusCode(201)
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "test-user", roles = ["user"])
+    fun `a plant can be archived as sold, but not for an unknown reason`() {
+        val plantId = createPlant(createRoom())
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(ArchivePlantRequest(reason = "LOST"))
+            .`when`().post("/plants/$plantId/archive")
+            .then()
+            .statusCode(400)
+            .body("code", `is`("archive_reason_invalid"))
+            .body("field", `is`("reason"))
+        given()
+            .contentType(ContentType.JSON)
+            .body(ArchivePlantRequest(reason = ArchiveReason.SOLD))
+            .`when`().post("/plants/$plantId/archive")
+            .then()
+            .statusCode(200)
+            .body("archiveReason", `is`("SOLD"))
     }
 
     /** Creates a space with one room and returns the room's id. */

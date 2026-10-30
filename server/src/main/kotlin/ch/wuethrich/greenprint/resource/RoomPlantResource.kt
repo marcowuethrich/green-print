@@ -42,6 +42,7 @@ class RoomPlantResource {
     @Path("/{roomId}/plants")
     suspend fun createPlant(@PathParam("roomId") roomId: UUID, request: CreatePlantRequest): Response = withTx {
         val name = validateName(request.name)
+        val interval = validateInterval(request.wateringIntervalDays)
         val x = validatePosition(request.x, "x")
         val y = validatePosition(request.y, "y")
         val user = userService.currentUser()
@@ -54,7 +55,7 @@ class RoomPlantResource {
             this.species = request.species
             this.potSize = request.potSize
             this.soilType = request.soilType
-            this.wateringIntervalDays = request.wateringIntervalDays
+            this.wateringIntervalDays = interval
             this.room = room
             this.x = x
             this.y = y
