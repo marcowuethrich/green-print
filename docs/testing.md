@@ -2,19 +2,44 @@
 
 This document outlines the testing patterns and infrastructure used in the GreenPrint project.
 
+## The PR Gate: `prePRcheck`
+
+One command runs everything a pull request has to pass (ADR-016):
+
+```bash
+./gradlew prePRcheck
+```
+
+It runs, and fails on the first problem:
+- `ktlintCheck` (with the Compose rules) and `detekt` on every module, at zero findings: no baselines.
+- `:shared:jvmTest`, `:composeApp:jvmTest` and `:server:test`.
+- `:androidApp:assembleDebug` and `:composeApp:wasmJsBrowserDistribution`, so the Android and Web builds stay green.
+
+The server tests need Docker (see [Server Tests](#server-tests-quarkus)). `./gradlew ktlintFormat` fixes most formatting findings; detekt's report is printed in the build output and written to each module's `build/reports/detekt/detekt.txt`.
+
+## Shared Module Tests
+
+- **`shared/src/commonTest`**: platform-independent logic, for example `SpaceViewModelTest` and `BlueprintLayoutTest` (free spots for new plants, clamping).
+- **`shared/src/jvmTest`**: tests that need a real database. `PlantViewModelTest` runs `PlantViewModel` over the real `PlantRepositoryImpl`, an in-memory SQLite cache (`JdbcSqliteDriver(IN_MEMORY)`) and a Ktor `MockEngine` that plays the server and can go offline. It covers the blueprint's offline-first moves: online, offline, resent on refresh, kept across a restart, and clamped.
+- The repository takes its database dispatcher as a constructor parameter, and the mock engine runs on the test dispatcher, so `advanceUntilIdle()` waits for the database and the "network" alike.
+
+```bash
+./gradlew :shared:jvmTest
+```
+
 ## Compose UI Tests (commonTest)
 
-UI tests for the `composeApp` module are located in `composeApp/src/commonTest`. We use a shared testing infrastructure to ensure tests run across all supported platforms (Android, iOS, JVM, etc.).
+UI tests for the `composeApp` module are located in `composeApp/src/commonTest` and use the Compose Multiplatform v2 test API (`androidx.compose.ui.test.v2.runComposeUiTest`). They are written once for every target; the gate runs them on the JVM (Desktop) target.
 
 ### ScreenTest Base Class
 
 The `ScreenTest` base class (`ch.wuethrich.greenprint.testing.ScreenTest`) provides a standardized environment for screen-level UI tests.
 
 **Features:**
-- **Zero Animations:** Automatically provides `LocalAnimationsEnabled = false` via `CompositionLocal`. This makes transitions instantaneous and removes the need for `mainClock.advanceTimeBy`.
+- **Zero Animations:** `setScreenContent` provides `LocalAnimationsEnabled = false`. This makes transitions instantaneous and removes the need for `mainClock.advanceTimeBy`.
 - **Fresh Fakes:** Every test gets new instances of `FakeSpaceRepository`, `FakeRoomRepository`, and `FakePlantRepository`.
-- **Koin Integration:** Automatically starts and stops a Koin container for each test, wired with `testAppModule`.
-- **Voyager Navigator:** Includes a `setScreenContent` helper to mount screens inside a Voyager `Navigator`.
+- **Koin Integration:** Automatically starts and stops a Koin container for each test, wired with `testAppModule` (plus any `extraModules()`).
+- **Voyager Navigator:** The `setScreenContent` helper mounts screens inside a Voyager `Navigator`; pass `behind` to put a `MarkerScreen` underneath and assert that a screen popped back.
 
 ### Robust Synchronization Patterns
 
@@ -37,18 +62,16 @@ If multiple nodes match (e.g., a "Delete" button in a menu and another in a conf
 onAllNodesWithText("Delete").onLast().performClick()
 ```
 
+#### Gestures, Keys and Accessibility Actions
+`PlantScreenTest` shows the patterns for the Spatial Blueprint: `performTouchInput { swipe(start = center, end = center + Offset(200f, 0f)) }` for a drag, `requestFocus()` plus `performKeyInput { pressKey(Key.DirectionRight) }` for the keyboard, and `performCustomAccessibilityActionWithLabel(...)` for screen-reader actions. Assert on what the fake repository received (`plantRepository.positionUpdates`) to check that a drag saves once, on release.
+
 ### Component Best Practices
-To ensure components are ready for focus in a zero-animation test environment, use `withFrameNanos` before requesting focus:
+Dialogs move focus to their first control with `RequestInitialFocus(focusRequester)` (`ui/components/DialogParts.kt`, ADR-013). It waits for the entrance animation, or one frame when animations are off, so it works in the zero-animation test environment too:
 
 ```kotlin
-LaunchedEffect(Unit) {
-    if (animationsEnabled) {
-        delay(100.milliseconds)
-    } else {
-        withFrameNanos { } // Yield to let Compose layout before focusing
-    }
-    focusRequester.requestFocus()
-}
+val focusRequester = remember { FocusRequester() }
+RequestInitialFocus(focusRequester)
+OutlinedTextField(..., modifier = Modifier.focusRequester(focusRequester))
 ```
 
 ### Running Tests Locally
@@ -65,9 +88,24 @@ The fastest and most reliable way to run UI tests locally is using the JVM (Desk
 ./gradlew :composeApp:jvmTest --tests "ch.wuethrich.greenprint.space.SpaceScreenTest"
 ```
 
+## Server Tests (Quarkus)
+
+`server/src/test` holds `@QuarkusTest` resource tests that call the REST API with REST Assured, for example `PlantPositionResourceTest` for `PUT /plants/{id}/position` and its `400`/`404` answers. Users are set per test with `@TestSecurity`, and each test clears the tables first (`TestDatabase.kt`); the classes share the database, so they hold a `@ResourceLock("database")`.
+
+Quarkus Dev Services start PostgreSQL 16 in a container (Testcontainers), so the tests need a running Docker daemon. With [Colima](https://github.com/abiosoft/colima) on macOS:
+
+```bash
+colima start
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+./gradlew :server:test
+```
+
+Docker Desktop needs no variables. The container is reused between runs (`devservices.reuse=true`).
+
 ## Fake Infrastructure
 
 We prefer "Fakes" over "Mocks" for core domain components to ensure more realistic state transitions.
 
-- **FakeRepositories:** Located in `testing/FakeRepositories.kt`. They use `MutableStateFlow` to simulate reactive data updates.
-- **FakeSqlDriver:** A memory-based SQLDelight driver for testing database queries without persistence side effects.
+- **FakeRepositories:** Located in `composeApp/src/commonTest/.../testing/FakeRepositories.kt`. Each one is backed by a replaying `MutableSharedFlow` (replay 1): a test emits the data a screen should show, and the screen sees the latest value even if it subscribes later. Writes return a result the test sets (`createResult`, `deleteResult`, ...); `updatePlantPosition` also records each move in `positionUpdates` and re-emits the moved plant, like the real write-through repository.
+- **FakeSqlDriver:** A no-op SQLDelight driver: reads return empty cursors and writes persist nothing. It only satisfies the `GreenPrintDbQueries` that Koin injects; tests that need a real database use an in-memory `JdbcSqliteDriver` instead (see `PlantViewModelTest`).
