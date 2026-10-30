@@ -26,11 +26,12 @@ suspend inline fun <reified T> HttpClient.safeRequest(block: HttpRequestBuilder.
     NetworkResult.Failure(e.toNetworkError())
 } catch (_: IOException) {
     NetworkResult.Failure(NetworkError.Connectivity)
-} catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+} catch (@Suppress("TooGenericExceptionCaught") e: Throwable) {
     // The network boundary: any other engine failure (a browser fetch error, a malformed body) becomes a
-    // result, and a cancelled caller stays cancelled instead of seeing a failure.
+    // result, and a cancelled caller stays cancelled instead of seeing a failure. What is no engine
+    // failure (an OutOfMemoryError on the JVM) is thrown on.
     currentCoroutineContext().ensureActive()
-    NetworkResult.Failure(NetworkError.Unknown(e.message))
+    NetworkResult.Failure(e.toEngineFailure() ?: throw e)
 }
 
 suspend fun ResponseException.toNetworkError(): NetworkError = when (response.status) {
