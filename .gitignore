@@ -29,3 +29,10 @@ Pods/
 .claude/settings.local.json
 CLAUDE.local.md
 .grepai/
+
+# Agent worktrees
+.agents/worktrees/
+.claude/worktrees/
+
+# Python
+__pycache__/

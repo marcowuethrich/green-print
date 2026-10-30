@@ -1,0 +1,50 @@
+name: CI
+
+# Runs on the owner's self-hosted Mac mini (label mini-mac, a runner registered for this repository
+# alone, running as its own macOS user). The repository is public, so no job may ever run code from
+# a fork: every job is skipped for a pull request whose head is not a branch of this repository,
+# before a runner is picked. No pull_request_target, a read-only token, actions pinned by SHA.
+# docs/agentic/README.md, "Self-hosted CI on a public repository".
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  docs:
+    name: Docs and agent files
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: mini-mac
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Docs gate
+        run: python3 tools/docs_check.py
+      - name: Agent guard tests
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+
+  gate:
+    name: Gate (lint, tests, builds)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: mini-mac
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      # The runner's user has no Docker, which the server's integration tests need (Quarkus Dev
+      # Services start Postgres in a container): CI compiles them, prePRcheck runs them locally.
+      - name: prePRcheck
+        run: ./gradlew prePRcheck -x :server:test :server:compileTestKotlin --console=plain
