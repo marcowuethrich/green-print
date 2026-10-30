@@ -90,7 +90,7 @@
     <!-- Plant — spatial blueprint -->
     <string name="plant_view_list">List</string>
     <string name="plant_view_blueprint">Blueprint</string>
-    <string name="plant_blueprint_hint">Drag a plant to where it stands, or select it and use the arrow keys. Tap a plant to edit it.</string>
+    <string name="plant_blueprint_hint">Drag a plant to where it stands, and tap it to edit it. A plant's colour shows how thirsty it is.</string>
     <string name="plant_blueprint_marker">%1$s on the room blueprint</string>
     <string name="plant_blueprint_not_synced">Not saved to the server yet</string>
     <string name="plant_blueprint_move_left">Move left</string>

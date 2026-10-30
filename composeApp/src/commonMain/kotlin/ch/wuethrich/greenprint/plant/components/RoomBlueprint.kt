@@ -53,6 +53,8 @@ import ch.wuethrich.greenprint.model.Plant
 import ch.wuethrich.greenprint.model.SyncStatus
 import ch.wuethrich.greenprint.plant.BlueprintLayout
 import ch.wuethrich.greenprint.plant.BlueprintPosition
+import ch.wuethrich.greenprint.plant.HydrationLevel
+import ch.wuethrich.greenprint.plant.PlantCareUtils
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.ic_leaf
@@ -68,6 +70,12 @@ import kotlin.math.roundToInt
 
 /** Rooms are drawn wider than tall; the coordinates stay normalized either way (ADR-008). */
 private const val BLUEPRINT_ASPECT_RATIO = 4f / 3f
+
+/** How strongly a marker's background takes its hydration colour. */
+private const val MARKER_TINT_ALPHA = 0.18f
+
+/** The marker's outline in its hydration colour, softer than the fill's text. */
+private const val MARKER_BORDER_ALPHA = 0.5f
 
 /** Grid lines split the floor into this many cells per side, to help place plants by eye. */
 private const val GRID_CELLS = 4
@@ -149,6 +157,7 @@ private fun BlueprintMarker(
 
     MarkerChip(
         name = plant.name,
+        hydration = PlantCareUtils.hydrationLevel(PlantCareUtils.calculateHydration(plant)),
         isSynced = isSynced,
         focused = focused,
         onClick = onClick,
@@ -178,23 +187,29 @@ private fun BlueprintMarker(
     )
 }
 
-/** The marker itself: a pill with the plant's name; a dot while its position waits for the server. */
+/**
+ * The marker itself: a pill with the plant's name, tinted by how thirsty the plant is (the same
+ * colours as the list's hydration bar); a dot while its position waits for the server.
+ */
 @Composable
 private fun MarkerChip(
     name: String,
+    hydration: HydrationLevel,
     isSynced: Boolean,
     focused: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val tint = hydration.color()
     Row(
         modifier = modifier
             .clip(CircleShape)
-            .background(colors.primaryContainer)
+            .background(colors.surface)
+            .background(tint.copy(alpha = MARKER_TINT_ALPHA))
             .border(
                 width = if (focused) DesignSystem.StrokeBold else DesignSystem.StrokeThin,
-                color = if (focused) colors.primary else colors.outline,
+                color = if (focused) colors.primary else tint.copy(alpha = MARKER_BORDER_ALPHA),
                 shape = CircleShape,
             ).clickable(onClick = onClick)
             .heightIn(min = DesignSystem.Space7)
@@ -205,13 +220,13 @@ private fun MarkerChip(
         Icon(
             painter = painterResource(Res.drawable.ic_leaf),
             contentDescription = null,
-            tint = colors.primary,
+            tint = tint,
             modifier = Modifier.size(DesignSystem.Space5),
         )
         Text(
             text = name,
             style = MaterialTheme.typography.labelLarge,
-            color = colors.onPrimaryContainer,
+            color = colors.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = DesignSystem.Space8 + DesignSystem.Space6),

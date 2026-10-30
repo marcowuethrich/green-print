@@ -132,7 +132,7 @@ private fun HydrationBar(hydration: Float, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HydrationLevel.color(): Color = when (this) {
+internal fun HydrationLevel.color(): Color = when (this) {
     HydrationLevel.HEALTHY -> MaterialTheme.colorScheme.primary
     HydrationLevel.THIRSTY -> DesignSystem.Warning
     HydrationLevel.DRY -> MaterialTheme.colorScheme.error
