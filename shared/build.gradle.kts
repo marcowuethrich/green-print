@@ -3,15 +3,29 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
 }
 
 kotlin {
-    androidTarget {
+    compilerOptions {
+        // DriverFactory is an expect class (one SQLite driver per platform).
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
+    android {
+        namespace = "ch.wuethrich.greenprint.shared"
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
+            jvmTarget = JvmTarget.JVM_11
         }
     }
 
@@ -19,10 +33,6 @@ kotlin {
     iosSimulatorArm64()
 
     jvm()
-
-    js {
-        browser()
-    }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
@@ -43,6 +53,7 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.sqldelight.coroutines)
+            implementation(libs.sqldelight.async.extensions)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -61,13 +72,10 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.sqldelight.sqlite.driver)
         }
-        jsMain.dependencies {
-            implementation(libs.ktor.client.js)
-            implementation(libs.sqldelight.web.worker.driver)
-        }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
             implementation(libs.sqldelight.web.worker.driver)
+            implementation(libs.kotlinx.browser)
         }
     }
 }
@@ -76,18 +84,9 @@ sqldelight {
     databases {
         create("GreenPrintDb") {
             packageName.set("ch.wuethrich.greenprint.db")
+            // The web worker driver can only answer asynchronously, so every query is generated as a
+            // suspend call; the other platforms' drivers run it synchronously (ADR-017).
+            generateAsync.set(true)
         }
-    }
-}
-
-android {
-    namespace = "ch.wuethrich.greenprint.shared"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
     }
 }

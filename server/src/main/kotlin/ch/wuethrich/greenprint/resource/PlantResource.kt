@@ -2,12 +2,18 @@ package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.auth.UserService
 import ch.wuethrich.greenprint.entity.PlantEntity
+import ch.wuethrich.greenprint.entity.WateringEventEntity
 import ch.wuethrich.greenprint.entity.toDto
+import ch.wuethrich.greenprint.model.ApiError
 import ch.wuethrich.greenprint.model.ArchivePlantRequest
+import ch.wuethrich.greenprint.model.RecordWateringRequest
+import ch.wuethrich.greenprint.model.UpdatePlantPositionRequest
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
+import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
+import jakarta.persistence.LockModeType
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.POST
@@ -31,25 +37,77 @@ class PlantResource {
 
     @PUT
     @Path("/{id}")
-    suspend fun updatePlant(
-        @PathParam("id") id: UUID,
-        request: UpdatePlantRequest
-    ): Response = withTx {
+    suspend fun updatePlant(@PathParam("id") id: UUID, request: UpdatePlantRequest): Response = withTx {
         val name = validateName(request.name)
-        val user = userService.currentUser()
-        val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
-            .firstResult().awaitSuspending()
-            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+        val interval = validateInterval(request.wateringIntervalDays)
+        val x = validatePosition(request.x, "x")
+        val y = validatePosition(request.y, "y")
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
 
         plant.apply {
             this.name = name
             this.species = request.species
             this.potSize = request.potSize
             this.soilType = request.soilType
-            this.wateringIntervalDays = request.wateringIntervalDays
+            this.wateringIntervalDays = interval
             this.photoUrl = request.photoUrl
-            this.x = request.x
-            this.y = request.y
+            this.x = x
+            this.y = y
+        }
+
+        Response.ok(plant.toDto()).build()
+    }
+
+    /** Moves a plant on its room's blueprint (spatial_blueprint.md §2). */
+    @PUT
+    @Path("/{id}/position")
+    suspend fun updatePosition(@PathParam("id") id: UUID, request: UpdatePlantPositionRequest): Response = withTx {
+        val x = validatePosition(request.x, "x")
+        val y = validatePosition(request.y, "y")
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
+
+        plant.x = x
+        plant.y = y
+
+        Response.ok(plant.toDto()).build()
+    }
+
+    /**
+     * Records a watering (inventory.md §5) and returns the plant with its new `lastWateredDate`. The
+     * client picks the watering's id, so a resent watering is stored once and answered like the first,
+     * even when both arrive at the same time; a watering older than the plant's last one is logged but
+     * leaves `lastWateredDate` as it is.
+     */
+    @POST
+    @Path("/{id}/waterings")
+    suspend fun recordWatering(@PathParam("id") id: UUID, request: RecordWateringRequest): Response = withTx {
+        val wateringId = validateWateringId(request.id)
+        val wateredAt = validateWateredAt(request.timestamp, now = Instant.now())
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
+        // Waterings of one plant take turns: a resend that raced the first sees it stored, and the
+        // plant as that one left it.
+        Panache.getSession().chain { session -> session.refresh(plant, LockModeType.PESSIMISTIC_WRITE) }
+            .awaitSuspending()
+
+        val existing = WateringEventEntity.findById(wateringId).awaitSuspending()
+        when {
+            existing == null -> {
+                WateringEventEntity()
+                    .apply {
+                        this.id = wateringId
+                        this.plant = plant
+                        this.wateredAt = wateredAt
+                    }.persist<WateringEventEntity>()
+                    .awaitSuspending()
+                if (plant.lastWateredDate?.isAfter(wateredAt) != true) plant.lastWateredDate = wateredAt
+            }
+
+            // The same id for another plant is not a resend but a clash.
+            existing.plant.id != plant.id ->
+                return@withTx Response
+                    .status(Response.Status.CONFLICT)
+                    .entity(ApiError(code = "watering_id_taken", field = "id"))
+                    .build()
         }
 
         Response.ok(plant.toDto()).build()
@@ -57,17 +115,12 @@ class PlantResource {
 
     @POST
     @Path("/{id}/archive")
-    suspend fun archivePlant(
-        @PathParam("id") id: UUID,
-        request: ArchivePlantRequest
-    ): Response = withTx {
-        val user = userService.currentUser()
-        val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
-            .firstResult().awaitSuspending()
-            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+    suspend fun archivePlant(@PathParam("id") id: UUID, request: ArchivePlantRequest): Response = withTx {
+        val reason = validateArchiveReason(request.reason)
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
 
         plant.archiveDate = Instant.now()
-        plant.archiveReason = request.reason
+        plant.archiveReason = reason
 
         Response.ok(plant.toDto()).build()
     }
@@ -75,11 +128,21 @@ class PlantResource {
     @DELETE
     @Path("/{id}")
     suspend fun deletePlant(@PathParam("id") id: UUID): Response = withTx {
-        val user = userService.currentUser()
-        val plant = PlantEntity.find("id = ?1 and room.space.user = ?2", id, user)
-            .firstResult().awaitSuspending()
-            ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+        val plant = findOwnedPlant(id) ?: return@withTx notFound()
+        // Hibernate's dev and test DDL has no ON DELETE CASCADE, so the log goes first.
+        WateringEventEntity.delete("plant.id = ?1", plant.id!!).awaitSuspending()
         plant.deleteDirectly(plant.id)
         Response.noContent().build()
     }
+
+    /** The plant, if it lives in one of the current user's spaces. */
+    private suspend fun findOwnedPlant(id: UUID): PlantEntity? {
+        val user = userService.currentUser()
+        return PlantEntity
+            .find("id = ?1 and room.space.user = ?2", id, user)
+            .firstResult()
+            .awaitSuspending()
+    }
+
+    private fun notFound(): Response = Response.status(Response.Status.NOT_FOUND).build()
 }

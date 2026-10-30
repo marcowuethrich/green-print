@@ -2,135 +2,151 @@ package ch.wuethrich.greenprint.space.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import ch.wuethrich.greenprint.model.Room
+import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.ui.IconRegistry
+import ch.wuethrich.greenprint.ui.components.CancelDeleteButtons
 import ch.wuethrich.greenprint.ui.components.DeleteConfirmationDialog
+import ch.wuethrich.greenprint.ui.components.DialogTitle
 import ch.wuethrich.greenprint.ui.components.GenericFormModal
+import ch.wuethrich.greenprint.ui.components.RequestInitialFocus
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
-import ch.wuethrich.greenprint.ui.theme.LocalAnimationsEnabled
-import greenprint.composeapp.generated.resources.*
-import kotlinx.coroutines.delay
+import greenprint.composeapp.generated.resources.Res
+import greenprint.composeapp.generated.resources.common_icon_picker_label
+import greenprint.composeapp.generated.resources.common_ok
+import greenprint.composeapp.generated.resources.room_add_dialog_title
+import greenprint.composeapp.generated.resources.room_delete_dialog_message
+import greenprint.composeapp.generated.resources.room_delete_dialog_title
+import greenprint.composeapp.generated.resources.room_name_hint
+import greenprint.composeapp.generated.resources.room_not_empty_message
+import greenprint.composeapp.generated.resources.room_not_empty_title
+import greenprint.composeapp.generated.resources.room_rename_dialog_title
+import greenprint.composeapp.generated.resources.space_delete_dialog_confirm_hint
+import greenprint.composeapp.generated.resources.space_delete_dialog_message
+import greenprint.composeapp.generated.resources.space_delete_dialog_title
+import greenprint.composeapp.generated.resources.space_name_hint
+import greenprint.composeapp.generated.resources.space_rename_dialog_title
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun CreateRoomModal(
     error: String?,
-    onConfirm: (String, String?) -> Unit,
+    onConfirm: (name: String, icon: String?) -> Unit,
     onDismiss: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
 ) {
     GenericFormModal(
         title = stringResource(Res.string.room_add_dialog_title),
         nameLabel = stringResource(Res.string.room_name_hint),
         availableIcons = IconRegistry.roomIcons,
-        iconLabel = stringResource(Res.string.room_icon_picker_label),
+        iconLabel = stringResource(Res.string.common_icon_picker_label),
         error = error,
         onConfirm = onConfirm,
         onDismiss = onDismiss,
-        onClearError = onClearError
+        onClearError = onClearError,
     )
 }
 
 @Composable
 fun RenameRoomDialog(
-    currentName: String,
-    currentIcon: String?,
+    room: Room,
     error: String?,
-    onConfirm: (String, String?) -> Unit,
+    onConfirm: (name: String, icon: String?) -> Unit,
     onDismiss: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
 ) {
     GenericFormModal(
         title = stringResource(Res.string.room_rename_dialog_title),
         nameLabel = stringResource(Res.string.room_name_hint),
-        initialName = currentName,
-        initialIcon = currentIcon,
+        initialName = room.name,
+        initialIcon = room.icon,
         availableIcons = IconRegistry.roomIcons,
-        iconLabel = stringResource(Res.string.room_icon_picker_label),
+        iconLabel = stringResource(Res.string.common_icon_picker_label),
         error = error,
         onConfirm = onConfirm,
         onDismiss = onDismiss,
-        onClearError = onClearError
+        onClearError = onClearError,
     )
 }
 
 @Composable
-fun DeleteRoomDialog(
-    room: Room,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun DeleteRoomDialog(room: Room, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     DeleteConfirmationDialog(
         title = stringResource(Res.string.room_delete_dialog_title),
-        message = "Are you sure you want to delete '${room.name}'?",
+        message = stringResource(Res.string.room_delete_dialog_message, room.name),
         onConfirm = onConfirm,
-        onDismiss = onDismiss
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+fun RoomNotEmptyDialog(roomName: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.room_not_empty_title)) },
+        text = { Text(stringResource(Res.string.room_not_empty_message, roomName)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.common_ok))
+            }
+        },
     )
 }
 
 @Composable
 fun RenameSpaceDialog(
-    currentName: String,
-    currentIcon: String?,
+    space: Space,
     error: String?,
-    onConfirm: (String, String?) -> Unit,
+    onConfirm: (name: String, icon: String?) -> Unit,
     onDismiss: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
 ) {
     GenericFormModal(
         title = stringResource(Res.string.space_rename_dialog_title),
         nameLabel = stringResource(Res.string.space_name_hint),
-        initialName = currentName,
-        initialIcon = currentIcon,
+        initialName = space.name,
+        initialIcon = space.icon,
         availableIcons = IconRegistry.spaceIcons,
-        iconLabel = "Choose an icon (optional)",
+        iconLabel = stringResource(Res.string.common_icon_picker_label),
         error = error,
         onConfirm = onConfirm,
         onDismiss = onDismiss,
-        onClearError = onClearError
+        onClearError = onClearError,
     )
 }
 
+/** Deleting a space takes everything in it, so the user types its name to confirm. */
 @Composable
-fun DeleteSpaceDialog(
-    spaceName: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+fun DeleteSpaceDialog(spaceName: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     var confirmationText by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-    val animationsEnabled = LocalAnimationsEnabled.current
-
-    LaunchedEffect(Unit) {
-        if (animationsEnabled) {
-            delay(100.milliseconds)
-        } else {
-            withFrameNanos { }
-        }
-        focusRequester.requestFocus()
-    }
+    RequestInitialFocus(focusRequester)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
-        title = { Text(stringResource(Res.string.space_delete_dialog_title), fontWeight = FontWeight.Bold) },
+        title = { DialogTitle(stringResource(Res.string.space_delete_dialog_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(DesignSystem.Space4)) {
                 Text(stringResource(Res.string.space_delete_dialog_message))
                 Text(
-                    text = "Please type '$spaceName' to confirm deletion:",
+                    text = stringResource(Res.string.space_delete_dialog_confirm_hint, spaceName),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = confirmationText,
@@ -138,24 +154,16 @@ fun DeleteSpaceDialog(
                     placeholder = { Text(spaceName) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                    shape = MaterialTheme.shapes.medium
+                    shape = MaterialTheme.shapes.medium,
                 )
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(DesignSystem.Space2)) {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(Res.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Button(
-                    onClick = onConfirm,
-                    enabled = confirmationText == spaceName,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text(stringResource(Res.string.common_delete), fontWeight = FontWeight.Bold)
-                }
-            }
+            CancelDeleteButtons(
+                onCancel = onDismiss,
+                onDelete = onConfirm,
+                deleteEnabled = confirmationText == spaceName,
+            )
         },
         dismissButton = null,
     )

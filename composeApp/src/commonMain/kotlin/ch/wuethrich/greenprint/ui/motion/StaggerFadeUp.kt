@@ -35,7 +35,7 @@ fun StaggerFadeUp(
 ) {
     val animationsEnabled = LocalAnimationsEnabled.current
     var visible by remember { mutableStateOf(!animationsEnabled) }
-    
+
     if (animationsEnabled) {
         LaunchedEffect(Unit) {
             delay((initialDelayMs + index * stepMs).toLong().milliseconds)
@@ -49,10 +49,10 @@ fun StaggerFadeUp(
         visible = visible,
         modifier = modifier,
         enter = fadeIn(animationSpec = tween(finalDuration)) +
-                slideInVertically(
-                    initialOffsetY = { it / 4 + 28 },
-                    animationSpec = tween(finalDuration),
-                ),
+            slideInVertically(
+                initialOffsetY = { it / 4 + 28 },
+                animationSpec = tween(finalDuration),
+            ),
     ) {
         content()
     }

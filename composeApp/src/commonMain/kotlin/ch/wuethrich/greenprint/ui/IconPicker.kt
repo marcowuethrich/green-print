@@ -34,37 +34,37 @@ fun IconPicker(
     label: String,
     availableIcons: List<String>,
     selectedIcon: String?,
-    onIconSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onIconSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = DesignSystem.Space2)
+            modifier = Modifier.padding(horizontal = DesignSystem.Space2),
         )
         Spacer(modifier = Modifier.height(DesignSystem.Space2))
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(DesignSystem.Space4),
-            contentPadding = PaddingValues(horizontal = DesignSystem.Space2)
+            contentPadding = PaddingValues(horizontal = DesignSystem.Space2),
         ) {
             itemsIndexed(availableIcons) { _, iconId ->
                 val isSelected = iconId == selectedIcon
-                
-                val backgroundColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                    animationSpec = tween(durationMillis = 200)
-                )
-                
-                val iconColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    animationSpec = tween(durationMillis = 200)
-                )
 
+                val colors = MaterialTheme.colorScheme
+                val colorAnimation = tween<Color>(durationMillis = DesignSystem.Motion.DURATION_QUICK_MS)
+                val backgroundColor by animateColorAsState(
+                    targetValue = if (isSelected) colors.primaryContainer else Color.Transparent,
+                    animationSpec = colorAnimation,
+                )
+                val iconColor by animateColorAsState(
+                    targetValue = if (isSelected) colors.primary else colors.onSurfaceVariant,
+                    animationSpec = colorAnimation,
+                )
                 val borderColor by animateColorAsState(
-                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                    animationSpec = tween(durationMillis = 200)
+                    targetValue = if (isSelected) colors.primary else colors.outlineVariant,
+                    animationSpec = colorAnimation,
                 )
 
                 Box(
@@ -73,14 +73,14 @@ fun IconPicker(
                         .clip(CircleShape)
                         .background(backgroundColor)
                         .border(1.dp, borderColor, CircleShape)
-                        .clickable { onIconSelected(iconId) },
-                    contentAlignment = Alignment.Center
+                        .clickable { onIconSelect(iconId) },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         painter = IconRegistry.getPainter(iconId),
                         contentDescription = iconId,
                         tint = iconColor,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(28.dp),
                     )
                 }
             }

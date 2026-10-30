@@ -7,13 +7,12 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
+import jakarta.inject.Inject
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.hasSize
+import org.hibernate.reactive.mutiny.Mutiny
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-
-import jakarta.inject.Inject
-import org.hibernate.reactive.mutiny.Mutiny
 import org.junit.jupiter.api.parallel.ResourceLock
 
 @QuarkusTest
@@ -25,11 +24,7 @@ class SpaceResourceTest {
 
     @BeforeEach
     fun setup() {
-        sf.withTransaction { _ ->
-            RoomEntity.deleteAll()
-                .flatMap { SpaceEntity.deleteAll() }
-                .flatMap { UserEntity.deleteAll() }
-        }.await().indefinitely()
+        sf.clearDatabase()
     }
 
     @Test
@@ -227,7 +222,6 @@ class SpaceResourceTest {
             .extract().path("id")
     }
 
-    @Suppress("SameParameterValue")
     private fun givenSpaceInDb(forUser: String, named: String): String {
         var spaceId = ""
         sf.withTransaction { _ ->

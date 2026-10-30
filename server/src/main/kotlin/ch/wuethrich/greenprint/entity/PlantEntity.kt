@@ -1,6 +1,7 @@
 package ch.wuethrich.greenprint.entity
 
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.SyncStatus
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheCompanionBase
 import io.quarkus.hibernate.reactive.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.Column
@@ -11,6 +12,8 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
+import jakarta.persistence.PrePersist
+import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.Instant
@@ -55,6 +58,16 @@ class PlantEntity : PanacheEntityBase {
     var x: Float = 0f
     var y: Float = 0f
 
+    /** When the plant last changed on the server; the clients' cache keeps it (inventory.md §6.2). */
+    @Column(name = "updated_at")
+    var updatedAt: Instant = Instant.now()
+
+    @PrePersist
+    @PreUpdate
+    fun touch() {
+        updatedAt = Instant.now()
+    }
+
     companion object : PanacheCompanionBase<PlantEntity, UUID>
 }
 
@@ -72,6 +85,6 @@ fun PlantEntity.toDto() = Plant(
     archiveReason = archiveReason,
     x = x,
     y = y,
-    syncStatus = "S_SYNCED",
-    updatedAt = 0L
+    syncStatus = SyncStatus.SYNCED,
+    updatedAt = updatedAt.toEpochMilli(),
 )

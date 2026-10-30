@@ -1,9 +1,9 @@
 package ch.wuethrich.greenprint.space.components
 
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ch.wuethrich.greenprint.ui.components.DeleteMenuItem
+import ch.wuethrich.greenprint.ui.components.MenuAction
 import ch.wuethrich.greenprint.ui.components.MoreOptionsMenu
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.common_rename
@@ -15,26 +15,11 @@ fun SpaceSettingsMenu(
     onLeave: () -> Unit,
     onRenameClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     MoreOptionsMenu(modifier = modifier) { onDismiss ->
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.space_leave_action)) },
-            onClick = {
-                onDismiss()
-                onLeave()
-            }
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.common_rename)) },
-            onClick = {
-                onDismiss()
-                onRenameClick()
-            }
-        )
-        DeleteMenuItem(
-            onDismiss = onDismiss,
-            onClick = onDeleteClick
-        )
+        MenuAction(label = stringResource(Res.string.space_leave_action), onDismiss = onDismiss, onClick = onLeave)
+        MenuAction(label = stringResource(Res.string.common_rename), onDismiss = onDismiss, onClick = onRenameClick)
+        DeleteMenuItem(onDismiss = onDismiss, onClick = onDeleteClick)
     }
 }

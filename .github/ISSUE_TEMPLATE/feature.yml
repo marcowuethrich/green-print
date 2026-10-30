@@ -1,0 +1,27 @@
+name: Feature
+description: A change a user sees. It starts as a spec in docs/features/.
+labels: [feature]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What can a user do afterwards that they cannot do today?
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: User stories and acceptance criteria
+      placeholder: "As a user, I want … so that …"
+    validations:
+      required: true
+  - type: input
+    id: spec
+    attributes:
+      label: Spec
+      description: The spec in docs/features/ (new or extended in the pull request)
+  - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope

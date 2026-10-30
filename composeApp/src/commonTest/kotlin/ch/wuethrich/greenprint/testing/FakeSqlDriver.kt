@@ -28,8 +28,7 @@ class FakeSqlDriver : SqlDriver {
         binders: (SqlPreparedStatement.() -> Unit)?,
     ): QueryResult<R> = mapper(EmptyCursor)
 
-    override fun newTransaction(): QueryResult<Transacter.Transaction> =
-        QueryResult.Value(NoOpTransaction())
+    override fun newTransaction(): QueryResult<Transacter.Transaction> = QueryResult.Value(NoOpTransaction())
 
     override fun currentTransaction(): Transacter.Transaction? = null
     override fun addListener(vararg queryKeys: String, listener: Query.Listener) = Unit

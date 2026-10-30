@@ -2,7 +2,7 @@
 name: kotlin-project-feature-implementation
 description: Use when implementing or extending a feature in a Kotlin Multiplatform project. Provides pre-coding inspection, KMP source-set discipline, state pipeline design, architectural defaults, security/performance guardrails, and implementation rules. Forward-looking only — not a review skill.
 TRIGGER when: user asks to implement a new feature, add new functionality, build a new screen, or extend an existing flow in the KMP project.
-SKIP: bug diagnosis and fixes (use kotlin-project-bugfix); post-implementation review (use kotlin-kmp-code-review or kotlin-project-architecture-review); pure refactoring without new functionality (use kotlin-kmp-refactor-safety).
+SKIP: post-implementation review (use kotlin-kmp-code-review); pure refactoring without new functionality.
 license: Apache-2.0
 metadata:
   author: Mariano Miani
@@ -13,7 +13,7 @@ metadata:
 
 Use this skill when **implementing** a new feature or extending an existing flow in a Kotlin Multiplatform project.
 
-This skill is forward-looking only. It is not a review skill. It does not produce verdicts or issue severity ratings. For post-implementation or PR review, use `kotlin-project-architecture-review` instead.
+This skill is forward-looking only. It is not a review skill. It does not produce verdicts or issue severity ratings. For post-implementation or PR review, use `kotlin-kmp-code-review` instead.
 
 Your job is to deliver production-grade code that fits the existing architecture, respects the shared UI system, preserves module boundaries, and remains easy to maintain over time.
 

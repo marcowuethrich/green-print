@@ -19,7 +19,7 @@ interface RoomRepository {
 class RoomRepositoryImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String,
-    private val queries: GreenPrintDbQueries
+    private val queries: GreenPrintDbQueries,
 ) : RoomRepository {
     override suspend fun createRoom(spaceId: String, name: String, icon: String?): NetworkResult<Room> {
         val result = httpClient.safeRequest<Room> {
@@ -27,12 +27,12 @@ class RoomRepositoryImpl(
             method = HttpMethod.Post
             setBody(CreateRoomRequest(name, icon))
         }
-        
+
         if (result is NetworkResult.Success) {
             val room = result.data
             queries.insertRoom(room.id, room.spaceId, room.name, room.icon, room.syncStatus, room.updatedAt)
         }
-        
+
         return result
     }
 
@@ -42,12 +42,12 @@ class RoomRepositoryImpl(
             method = HttpMethod.Put
             setBody(UpdateRoomRequest(name, icon))
         }
-        
+
         if (result is NetworkResult.Success) {
             val room = result.data
             queries.insertRoom(room.id, room.spaceId, room.name, room.icon, room.syncStatus, room.updatedAt)
         }
-        
+
         return result
     }
 
@@ -56,11 +56,11 @@ class RoomRepositoryImpl(
             url("$baseUrl/rooms/$id")
             method = HttpMethod.Delete
         }
-        
+
         if (result is NetworkResult.Success) {
             queries.deleteRoom(id)
         }
-        
+
         return result
     }
 }

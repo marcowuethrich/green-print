@@ -1,8 +1,6 @@
 package ch.wuethrich.greenprint.di
 
-import ch.wuethrich.greenprint.db.DriverFactory
 import org.koin.dsl.module
 
-actual val platformModule = module {
-    single { DriverFactory() }
-}
+/** Empty on the web: the entry point opens the cache first and passes its DriverFactory to initKoin. */
+actual val platformModule = module { }

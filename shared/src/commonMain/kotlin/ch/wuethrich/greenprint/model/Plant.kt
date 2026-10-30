@@ -17,6 +17,6 @@ data class Plant(
     val archiveReason: String? = null,
     val x: Float = 0f,
     val y: Float = 0f,
-    val syncStatus: String = "S_SYNCED",
-    val updatedAt: Long = 0L
+    val syncStatus: String = SyncStatus.SYNCED,
+    val updatedAt: Long = 0L,
 )

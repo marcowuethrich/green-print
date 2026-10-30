@@ -1,4 +1,6 @@
-# Feature: Local Notifications
+# Feature: Watering Reminders (next step)
+
+> **Status: not built.** This spec is ready for the next iteration; nothing in the code implements it yet.
 
 Automated reminders to ensure plants are watered on time.
 

@@ -41,5 +41,5 @@ fun SpaceEntity.toDto() = Space(
     id = id!!.toString(),
     name = name,
     icon = icon,
-    rooms = rooms.map { it.toDto() }
+    rooms = rooms.map { it.toDto() },
 )

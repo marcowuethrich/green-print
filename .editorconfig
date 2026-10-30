@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 120
+# The style IntelliJ's own formatter produces (gradle.properties sets kotlin.code.style=official), so
+# "Reformat Code" in the IDE and ktlintFormat agree.
+ktlint_code_style = intellij_idea
+# Trailing commas on multi-line declarations and calls, as the Kotlin coding conventions recommend:
+# adding a parameter or argument then touches one line.
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+# Composables are PascalCase by convention.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Hold private composables to the Compose rules' Modifier conventions too, not only public ones.
+compose_check_modifiers_for_visibility = all
+# The one CompositionLocal: the theme's reduced-motion switch (style guide, Motion), read by every
+# animated component. An environment value like LocalDensity, not state passed between screens.
+compose_allowed_composition_locals = LocalAnimationsEnabled
+
+[iosApp/**]
+ktlint = disabled

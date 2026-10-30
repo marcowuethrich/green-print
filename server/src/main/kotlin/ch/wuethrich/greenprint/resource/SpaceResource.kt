@@ -6,8 +6,8 @@ import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.toDto
 import ch.wuethrich.greenprint.model.CreateRoomRequest
 import ch.wuethrich.greenprint.model.CreateSpaceRequest
-import ch.wuethrich.greenprint.model.UpdateSpaceRequest
 import ch.wuethrich.greenprint.model.Space
+import ch.wuethrich.greenprint.model.UpdateSpaceRequest
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
@@ -86,10 +86,7 @@ class SpaceResource {
 
     @POST
     @Path("/{spaceId}/rooms")
-    suspend fun createRoom(
-        @PathParam("spaceId") spaceId: UUID,
-        request: CreateRoomRequest
-    ): Response = withTx {
+    suspend fun createRoom(@PathParam("spaceId") spaceId: UUID, request: CreateRoomRequest): Response = withTx {
         val name = validateName(request.name)
         val user = userService.currentUser()
         val space = SpaceEntity.find("id = ?1 and user = ?2", spaceId, user)

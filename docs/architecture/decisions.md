@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Short records of the key decisions made before feature implementation began.
+Short records of the key architecture decisions: ADR-001 to ADR-014 were made before feature implementation began, the later ones as the project grew. Web means the Wasm target only: the JavaScript target was dropped with ADR-017.
 
 ---
 
@@ -25,7 +25,7 @@ Short records of the key decisions made before feature implementation began.
 **Rationale:**
 - Provides a type-safe API for SQLite, ensuring consistency between the schema and Kotlin code.
 - Enables offline support by caching server data locally.
-- Supports all current targets (Android, iOS, JVM, JS, Wasm) using platform-specific drivers.
+- Supports all current targets (Android, iOS, JVM, Wasm) using platform-specific drivers (on the web, ADR-017).
 - Facilitates reactive UI updates by exposing database queries as Coroutine Flows.
 
 **Consequences:**
@@ -42,7 +42,7 @@ Short records of the key decisions made before feature implementation began.
 
 **Rationale:**
 - Keeps JPA/Panache annotations and server-specific concerns out of the KMP module.
-- The `shared` module compiles to all client targets (Android, iOS, JVM, JS, Wasm); Panache entities would not compile there.
+- The `shared` module compiles to all client targets (Android, iOS, JVM, Wasm); Panache entities would not compile there.
 - A clean DTO/entity mapping layer on the server makes it easy to evolve the database schema independently of the API contract.
 
 **Boundary:**
@@ -59,7 +59,7 @@ server/         → Panache entities + mappers to/from DTOs
 **Decision:** Use **Koin** for DI across all client targets.
 
 **Rationale:**
-- De-facto standard for Kotlin Multiplatform DI; runs on all five targets (Android, iOS, JVM, JS, Wasm).
+- De-facto standard for Kotlin Multiplatform DI; runs on every target (Android, iOS, JVM, Wasm).
 - Modules are declared in `shared/commonMain` and can be extended per platform in `androidMain` / `iosMain` if needed.
 - Integrates directly with KMP ViewModel via `koin-compose-viewmodel`.
 
@@ -76,7 +76,7 @@ server/         → Panache entities + mappers to/from DTOs
 **Decision:** Use **Ktor Client** for all HTTP communication from the client side.
 
 **Rationale:**
-- Only HTTP library that supports all KMP targets: Android (OkHttp engine), iOS (Darwin engine), JVM (OkHttp/CIO), JS (Fetch), Wasm (Fetch).
+- Only HTTP library that supports all KMP targets: Android (OkHttp engine), iOS (Darwin engine), JVM (OkHttp/CIO), Wasm (Fetch).
 - Declared once in `shared/commonMain`; engine is swapped per platform in the Gradle source sets.
 - First-class support for coroutines, JSON (via `kotlinx.serialization`), and content negotiation.
 
@@ -189,6 +189,7 @@ Adopt the Android/KMP community naming pattern for resource strings in `composeA
 - Prevents duplicate strings for generic actions.
 - Developers must prioritize using `common_` strings where applicable.
 - Simplifies navigation within the resource files as features are grouped alphabetically by prefix.
+- `shared` holds no user-facing text: the ViewModels report typed reasons (`ErrorReason` for a failure, `PlantChange` for a saved plant change) and the UI maps each to one of these strings (`ui/ErrorReasonText.kt`).
 
 ---
 
@@ -232,3 +233,67 @@ The application must be fully navigable and operable via keyboard. Every screen 
 - Production schema is owned by Atlas; `quarkus.hibernate-orm.schema-management.strategy=none` in prod.
 - Dev/test profiles still use Hibernate's `update` / `drop-and-create` for fast iteration — keep entity DDL and Atlas migrations in sync (e.g., `gen_random_uuid()` defaults must be expressible by both, or moved off the test path).
 - Schema changes are made by adding a new versioned SQL file in `server/migrations/`, not by editing applied migrations. Re-hash with `atlas migrate hash` if the directory uses integrity tracking.
+
+---
+
+## ADR-015 — Android Build: An `androidApp` Module Beside the KMP Libraries (AGP 9)
+
+**Decision:** The installable Android app is its own module, `androidApp`, built with `com.android.application`. `composeApp` and `shared` are Kotlin Multiplatform libraries whose Android target uses `com.android.kotlin.multiplatform.library`. No module applies `org.jetbrains.kotlin.android`: AGP 9 compiles Kotlin itself.
+
+**Rationale:**
+- AGP 9 no longer supports `com.android.application` (or `com.android.library`) in a module that applies the Kotlin Multiplatform plugin; the Android target of a KMP module must be the KMP Android library plugin.
+- The split is the layout JetBrains and Google recommend for Compose Multiplatform apps, so new templates, guides and tooling match the project.
+- The app module stays small: `MainActivity`, the Koin `Application`, the manifest and the launcher resources. Everything shared stays in `composeApp` and `shared`.
+
+**Layout:**
+- `androidApp`: `applicationId`, `targetSdk`, versioning, packaging and build types.
+- `composeApp`: the Compose UI for every platform as an Android library (`namespace ch.wuethrich.greenprint.composeapp`, Compose resources shipped as Android assets) plus the Desktop, Web and iOS entry points.
+- `shared`: the KMP library with ViewModels, repositories and the SQLDelight cache.
+
+**Consequences:**
+- Android runs and installs from `:androidApp` (`./gradlew :androidApp:assembleDebug`, `:androidApp:installDebug`); `:composeApp` has no Android app task.
+- Android-only app wiring (activities, `Application`, manifest entries such as permissions for notifications) goes into `androidApp`; Android code the shared UI needs goes into `composeApp/src/androidMain`.
+- The Kotlin compiler options for Android live in each module's `kotlin {}` block, since there is no Kotlin Android plugin to configure.
+
+---
+
+## ADR-016 — Code Quality: A Zero-Findings Gate (`prePRcheck`)
+
+**Decision:** Every module is checked by **ktlint** (with the [Compose rules](https://mrmans0n.github.io/compose-rules/)) and **detekt**, and the tree is kept at **zero findings**. There are no baseline files and no thresholds raised to hide findings. `./gradlew prePRcheck` runs the whole gate locally before a pull request.
+
+**Rules:**
+- **Configuration**: ktlint and the Compose rules are configured in `.editorconfig` (`intellij_idea` style, so IntelliJ's formatter and `ktlintFormat` agree); detekt runs its default rules plus `config/detekt/detekt.yml`, which only adds detekt's documented Compose settings and the project's target names.
+- **A finding is fixed in the code.** A suppression is the exception: it sits on the one declaration or expression it covers, never on a file or class, with the reason in a comment beside it.
+- **The gate**: `prePRcheck` runs `ktlintCheck` and `detekt` on every module, the `shared`, Compose UI and server tests, and the Android debug and Wasm builds.
+
+**Rationale:**
+- A baseline turns old findings into accepted debt that nobody revisits; a gate that is always at zero makes every new finding visible in the change that introduced it.
+- The Compose rules encode the conventions the style guide asks for (a `modifier` on every emitting composable, parameter order, event names, no ViewModels passed down) so review time goes to behaviour.
+- One task is one command to run before a pull request, and the same command for CI to call.
+
+**Consequences:**
+- A change that adds a finding fails the build; `./gradlew ktlintFormat` fixes most formatting findings automatically.
+- detekt 1.23 is pinned to the Kotlin compiler it was built with and runs without type resolution (only the `detekt` task per module; the per-source-set tasks are off) until detekt 2.x reads the current JDK.
+- Raising a threshold or adding a baseline is a change to this ADR, not a local workaround.
+
+---
+
+## ADR-017 — Web Persistence: SQLite in a Web Worker, Saved to IndexedDB
+
+**Decision:** The Wasm app's local cache is SQLite from **sql.js**, run in a web worker that speaks the protocol of SQLDelight's `WebWorkerDriver` (`composeApp/src/webMain/resources/greenprint-db.worker.js`). sql.js keeps the database in memory, so the worker saves a copy to **IndexedDB** at once after every committed write and opens that copy on the next start. SQLDelight generates the schema and queries **asynchronously** (`generateAsync`), and Wasm is the only web target: the JavaScript target is dropped.
+
+**Rationale:**
+- The screens read from the cache only (offline-first, ADR-002), so a web build without a real cache shows no data at all.
+- `WebWorkerDriver` is SQLDelight's driver for the browser; it can only answer asynchronously, which is why the schema and every query are generated as suspend calls. Android, iOS and the JVM run the same async schema through `Schema.synchronous()`, so there is one generated API.
+- sql.js needs no special HTTP headers, unlike SQLite's own wasm build with OPFS, which wants cross-origin isolation for its fastest mode. Saving the whole database to IndexedDB is cheap at this cache's size (tens of KB).
+- One web target keeps one set of web source sets, one lock file and one bundle to test.
+
+**Consequences:**
+- The web entry point opens the cache (`openWebCache`) before Koin starts, since the schema must be created or migrated first; SQLite's `user_version` holds the schema version, as on the other platforms.
+- `composeApp/webpack.config.d/` copies `sql-wasm-browser.wasm` next to the worker and runs the web dev server on port 8081, the server's dev CORS origin.
+- Repository code awaits query results (`awaitAsList()`, `awaitAsOne()`), and tests that seed a database outside a coroutine use the synchronous schema.
+- **Saving:** a write outside a transaction is saved as soon as it ran, a transaction when it commits; there is no delay, so a tab that closes or is hidden right after a write has nothing waiting to save, and no flush on `pagehide` is needed. Only an IndexedDB write still running when the browser ends the worker can be lost. IndexedDB runs one store's writes in the order they were made, so the newest save wins.
+- **Recovery:** sql.js opens a damaged file without complaint and fails on the first query, so the worker checks a saved copy with `PRAGMA quick_check`; one that fails is logged, deleted, and the cache starts empty. If the app still cannot open the cache (a copy whose schema it cannot migrate), the entry point (`Main.kt`) logs it, ends that worker and starts a new one that discards the saved copy. Either way the app starts, and refills the cache from the server; writes not yet sent from that copy are lost.
+- **Several tabs:** each tab holds its own copy of the database in its own worker, opened from the saved copy when the tab started, and saves its whole copy after each write. The last tab to save wins: its copy replaces the other tabs' saved writes, including writes they made offline and have not sent yet. Such a write still lives in its own tab's memory and is sent from there on that tab's next refresh, but it is lost if that tab closes first. A tab never sees another tab's writes until it is reloaded. A private window that refuses IndexedDB still gets a cache, for that visit only.
+- Ktor's fetch engine reports a request that got no answer as `kotlin.Error`; in the browser that is mapped to `NetworkError.Connectivity`, so the offline path works there as on the other platforms.
+

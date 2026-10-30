@@ -17,6 +17,7 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import java.time.Instant
 import java.util.UUID
 
 @Path("/rooms")
@@ -40,25 +41,27 @@ class RoomPlantResource {
 
     @POST
     @Path("/{roomId}/plants")
-    suspend fun createPlant(
-        @PathParam("roomId") roomId: UUID,
-        request: CreatePlantRequest
-    ): Response = withTx {
+    suspend fun createPlant(@PathParam("roomId") roomId: UUID, request: CreatePlantRequest): Response = withTx {
         val name = validateName(request.name)
+        val interval = validateInterval(request.wateringIntervalDays)
+        val x = validatePosition(request.x, "x")
+        val y = validatePosition(request.y, "y")
         val user = userService.currentUser()
         val room = RoomEntity.find("id = ?1 and space.user = ?2", roomId, user)
             .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
-        
+
         val plant = PlantEntity().apply {
             this.name = name
             this.species = request.species
             this.potSize = request.potSize
             this.soilType = request.soilType
-            this.wateringIntervalDays = request.wateringIntervalDays
+            this.wateringIntervalDays = interval
+            // A plant counts as watered when it is added, so it does not start out dry (inventory.md).
+            this.lastWateredDate = Instant.now()
             this.room = room
-            this.x = request.x
-            this.y = request.y
+            this.x = x
+            this.y = y
         }
         plant.persist<PlantEntity>().awaitSuspending()
         Response.status(Response.Status.CREATED).entity(plant.toDto()).build()

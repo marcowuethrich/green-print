@@ -25,6 +25,6 @@ fun testAppModule(
     single<SpaceRepository> { spaceRepository }
     single<RoomRepository> { roomRepository }
     single<PlantRepository> { plantRepository }
-    viewModel { SpaceViewModel(get(), get(), get(), get()) }
+    viewModel { SpaceViewModel(get(), get(), get()) }
     viewModel { PlantViewModel(get()) }
 }
