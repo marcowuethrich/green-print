@@ -103,7 +103,7 @@ The system follows a strict hierarchy defined in ADR-007.
 - **Quick Water**: Tapping the water action on a plant card logs a watering at once and the hydration bar fills, online or offline (§6.2). A snackbar confirms it, or says the watering is saved on this device and syncs later. *Next step*: a 5s "Undo" in that snackbar, which needs a way to remove a watering on the server.
 - **Watering API**: `POST /plants/{id}/waterings` with `{"id": "<uuid>", "timestamp": "<ISO-8601 instant>"}` logs the watering and returns the plant. The client picks the id, so a resent watering is stored once; a watering older than the plant's last one is logged without moving `lastWateredDate`. A malformed id answers `400` `watering_id_invalid`, a malformed or future timestamp (more than 5 minutes ahead) `400` `timestamp_invalid`, an unknown plant `404`.
 - **Photo Workflow**: Native camera/gallery pickers; compressed to ≤ 500KB before upload.
-- **Editing**: The form edits name, species and interval today; every other field (pot size, soil type, photo, position) is kept as it is. Updates follow the "Last Write Wins" strategy.
+- **Editing**: The form edits name, species and interval today; every other field (pot size, soil type, photo, position) is kept as it is. Updates follow the conflict strategy below.
 - **First watering**: A new plant counts as watered when it is added, so its bar starts full instead of dry.
 - **Placement**: A new plant lands on the free blueprint spot farthest from the room's other plants; it is moved on the blueprint afterwards.
 - **Archiving (Deletion)**:
@@ -128,7 +128,7 @@ The system follows a strict hierarchy defined in ADR-007.
   - *Other writes* (create, edit, archive, delete) still call the API first and update the cache from its answer, so they need a connection.
 - **Read Path**: Screens observe SQLDelight; a refresh fetches from the API and replaces the cached rows (for plants, only the rows with no unconfirmed move and no unsent watering).
 - **Sync Status**: `S_SYNCED`, `S_PENDING`, `S_ERROR` flags on every entity (`SyncStatus` in `shared`).
-- **Conflict Strategy**: "Last Write Wins" based on client-side `updatedAt` timestamps. A refresh never overwrites a row with a change the server has not confirmed. The server stamps every plant change in its own `updated_at`, which the API returns as `updatedAt`.
+- **Conflict Strategy**: The device's last write wins. On a refresh, a plant with a change the server has not confirmed, or one this device wrote after the refresh asked the server, keeps its local state; no timestamps are compared. A watering or move the server refuses (400, 403, 409) is given up and the plant shows the server's state again; a 404 removes the plant from the device. Only no answer, a 5xx, an expired session (401) or an unclassified error keep the write to be sent again. The server stamps every plant change in its own `updated_at`, which the API returns as `updatedAt`.
 
 ### 6.3 Observability
 - **Logging**: Structured logging via Kermit.
