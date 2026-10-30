@@ -26,6 +26,16 @@ sqldelight = "2.4.0"
 voyager = "2.2.21-1.10.3"
 logback = "1.5.38"
 quarkus = "3.40.1"
+# Lint (ADR-016). Detekt stays on the stable 1.23 line: it embeds Kotlin 2.0.21 and refuses any other
+# compiler, so root build.gradle.kts pins the detekt classpath to detekt-kotlin. It parses this
+# repository's Kotlin 2.4 sources (no rule enabled here needs type resolution).
+detekt = "1.23.8"
+detekt-kotlin = "2.0.21"
+ktlint-gradle = "14.2.0"
+# The ktlint engine itself, pinned rather than left to ktlint-gradle's default (1.5.0), whose parser
+# predates Kotlin 2.3/2.4 syntax; compose-rules is built against 1.8.
+ktlint-engine = "1.8.0"
+compose-rules = "0.6.8"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -82,6 +92,7 @@ sqldelight-native-driver = { module = "app.cash.sqldelight:native-driver", versi
 sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-web-worker-driver = { module = "app.cash.sqldelight:web-worker-driver", version.ref = "sqldelight" }
+compose-rules-ktlint = { module = "io.nlopez.compose.rules:ktlint", version.ref = "compose-rules" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -95,3 +106,5 @@ kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", versio
 kotlinAllOpen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

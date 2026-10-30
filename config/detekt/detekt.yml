@@ -1,0 +1,26 @@
+# Detekt on top of its default configuration (buildUponDefaultConfig = true). No baseline: the tree is
+# kept at zero findings (ADR-016). The overrides below are detekt's documented configuration for
+# Jetpack Compose (https://detekt.dev/docs/introduction/compose) plus this project's target names;
+# none of them raises a threshold.
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase.
+    ignoreAnnotated: ['Composable']
+  MatchingDeclarationName:
+    # Platform files are named <Declaration>.<target>.kt; the default list predates the wasmJs target.
+    multiplatformTargets: ['ios', 'android', 'js', 'jvm', 'native', 'wasmJs', 'iosArm64', 'iosSimulatorArm64']
+
+complexity:
+  LongParameterList:
+    # Optional composable parameters (modifier, colors, ...) are Compose's way of configuring a
+    # component, not a sign of too many responsibilities.
+    ignoreDefaultParameters: true
+
+style:
+  MagicNumber:
+    # A named property is the remedy MagicNumber asks for; design tokens live in such properties.
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']
