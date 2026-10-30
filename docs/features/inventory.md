@@ -104,6 +104,7 @@ The system follows a strict hierarchy defined in ADR-007.
 - **Watering API**: `POST /plants/{id}/waterings` with `{"id": "<uuid>", "timestamp": "<ISO-8601 instant>"}` logs the watering and returns the plant. The client picks the id, so a resent watering is stored once; a watering older than the plant's last one is logged without moving `lastWateredDate`. A malformed id answers `400` `watering_id_invalid`, a malformed or future timestamp (more than 5 minutes ahead) `400` `timestamp_invalid`, an unknown plant `404`.
 - **Photo Workflow**: Native camera/gallery pickers; compressed to ≤ 500KB before upload.
 - **Editing**: The form edits name, species and interval today; every other field (pot size, soil type, photo, position) is kept as it is. Updates follow the "Last Write Wins" strategy.
+- **First watering**: A new plant counts as watered when it is added, so its bar starts full instead of dry.
 - **Placement**: A new plant lands on the free blueprint spot farthest from the room's other plants; it is moved on the blueprint afterwards.
 - **Archiving (Deletion)**:
   - Deletion is handled as "Archiving" to preserve history (ADR-009).

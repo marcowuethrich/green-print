@@ -57,6 +57,7 @@ class RoomPlantResourceTest {
             .body("potSize", `is`("Medium"))
             .body("soilType", `is`("Cactus Mix"))
             .body("wateringIntervalDays", `is`(14))
+            .body("lastWateredDate", notNullValue())
 
         given()
             .`when`().get("/rooms/$roomId/plants")

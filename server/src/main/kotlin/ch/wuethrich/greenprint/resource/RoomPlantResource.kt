@@ -17,6 +17,7 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import java.time.Instant
 import java.util.UUID
 
 @Path("/rooms")
@@ -56,6 +57,8 @@ class RoomPlantResource {
             this.potSize = request.potSize
             this.soilType = request.soilType
             this.wateringIntervalDays = interval
+            // A plant counts as watered when it is added, so it does not start out dry (inventory.md).
+            this.lastWateredDate = Instant.now()
             this.room = room
             this.x = x
             this.y = y
