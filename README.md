@@ -1,106 +1,125 @@
 # 🌿 GreenPrint
 
-[![Kotlin](https://img.shields.io/badge/kotlin-2.3-blue.svg?logo=kotlin)](http://kotlinlang.org)
-[![KMP](https://img.shields.io/badge/Kotlin_Multiplatform-Enabled-7f52ff?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
-[![Backend](https://img.shields.io/badge/Backend-Quarkus-ff0044?logo=quarkus)](https://quarkus.io/)
-[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Desktop-lightgrey.svg)](#)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/marcowuethrich/green-print/actions/workflows/ci.yml/badge.svg)](https://github.com/marcowuethrich/green-print/actions/workflows/ci.yml)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7f52ff?logo=kotlin)](https://kotlinlang.org)
+[![Compose Multiplatform](https://img.shields.io/badge/Compose_Multiplatform-1.12-4285F4?logo=jetpackcompose)](https://www.jetbrains.com/compose-multiplatform/)
+[![Quarkus](https://img.shields.io/badge/Quarkus-3-4695EB?logo=quarkus)](https://quarkus.io)
+[![Platforms](https://img.shields.io/badge/platforms-Android%20·%20iOS%20·%20Desktop%20·%20Web-3ddc84)](#run-it)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**GreenPrint** is a high-performance spatial houseplant inventory system built with **Kotlin Multiplatform (KMP)** and **Quarkus**. It serves as a reference implementation for enterprise-grade cross-platform development, featuring shared business logic, reactive state management, and a visually immersive spatial UI.
+**A small Kotlin Multiplatform app, and a template for building software with coding agents.**
+
+GreenPrint keeps track of your houseplants room by room, and lays each room out as a top-down
+blueprint where you drag every plant to where it really stands. One Compose codebase runs on
+Android, iOS, desktop and the web, works offline, and syncs with a Quarkus server.
+
+The app is deliberately small. The interesting part is *how* it is built: agents (Claude Code,
+Codex, Gemini CLI) write most of the code inside a repository engineered for them, with a short
+instruction map, project skills, a guard hook, zero-findings gates and self-hosted CI.
+→ **[The agentic engineering workflow](docs/agentic/README.md)**
 
 <p align="center">
-  <img src="docs/assets/screenshots/android-room-screen.png" width="30%" alt="Room Screen" />
-  <img src="docs/assets/screenshots/android-add-new-room-dialog.png" width="30%" alt="Add Room Dialog" />
-  <img src="docs/assets/screenshots/android-living-room-plant-list.png" width="30%" alt="Plant List" />
+  <img src="docs/assets/screenshots/android-spaces.png" width="24%" alt="Spaces and rooms" />
+  <img src="docs/assets/screenshots/android-room-plants.png" width="24%" alt="Plants in a room" />
+  <img src="docs/assets/screenshots/android-room-blueprint.png" width="24%" alt="Room blueprint with draggable plants" />
+  <img src="docs/assets/screenshots/android-add-plant.png" width="24%" alt="Adding a plant" />
+</p>
+<p align="center">
+  <img src="docs/assets/screenshots/web-room.png" width="80%" alt="The same room in the browser (Wasm)" />
 </p>
 
----
+## Features
 
-## 🏗️ Architectural Overview
+- **Spaces, rooms and plants.** Organise a home, an office or a flat into rooms; track each plant's
+  species, pot, soil and watering interval; edit, archive and delete with confirmation.
+- **Spatial blueprint.** Every room as a floor plan seen from above. Drag a plant to its spot; the
+  position is saved when you let go. Arrow keys and screen-reader actions move it too.
+- **Watering.** One tap records a watering; each plant's bar shows how much of its interval is
+  left, from healthy through thirsty to dry.
+- **Offline first.** Moves and waterings land in the local SQLDelight database first (in the
+  browser too, kept in IndexedDB) and sync to the server when it is reachable; a dot shows what has
+  not synced yet.
+- **One UI, four platforms.** Compose Multiplatform for Android, iOS, desktop (JVM) and web (Wasm).
 
-GreenPrint follows a **clean, modular architecture** designed for scalability and maintainability across mobile, web, and desktop platforms.
+## Architecture
 
-- **Unified Shared Core**: All business logic, state management (ViewModels), and network infrastructure live in a single `shared` module, ensuring 100% consistency across Android, iOS, JVM, and Wasm.
-- **Modern UI**: Driven by **Compose Multiplatform**, allowing for a unified design system with native performance on all targets.
-- **Enterprise Backend**: A reactive **Quarkus** service providing robust OIDC-secured APIs and high-efficiency persistence.
+```mermaid
+flowchart LR
+    subgraph Client["Kotlin Multiplatform client"]
+        UI["composeApp<br/>Compose UI"] --> VM["shared<br/>ViewModels · repositories"]
+        VM --> DB[("SQLDelight<br/>local cache")]
+    end
+    VM -- "Ktor · JSON" --> API["server<br/>Quarkus REST"]
+    API --> PG[("PostgreSQL<br/>Atlas migrations")]
+    Android["androidApp"] --> UI
+    iOS["iosApp (SwiftUI host)"] --> UI
+```
 
----
-
-## 🛠️ Full Tech Stack
-
-### Frontend (KMP & Compose)
-* **UI Framework**: [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/) for consistent, declarative UI.
-* **Navigation**: [Voyager](https://voyager.adriel.cafe/) with state-aware stack management.
-* **Dependency Injection**: [Koin](https://insert-koin.io/) for cross-platform DI.
-* **Networking**: [Ktor Client](https://ktor.io/) with serialization and reactive flows.
-* **Persistence**: [SQLDelight](https://cashapp.github.io/sqldelight/) for type-safe, multiplatform database access.
-
-### Backend (Quarkus)
-* **Core**: [Quarkus](https://quarkus.io/) — The Supersonic Subatomic Java Framework.
-* **Persistence**: [Hibernate Panache](https://quarkus.io/guides/hibernate-panache) for streamlined data access.
-* **Security**: [OIDC / OAuth 2.0](https://quarkus.io/guides/security-openid-connect) with server-side token validation.
-* **Migrations**: [Atlas](https://atlasgo.io/) for modern, declarative database schema management.
-
-### Quality & Engineering
-* **UI Testing**: Instantaneous cross-platform UI tests using `waitUntil` and global animation control (skipping animations in test mode for maximum speed).
-* **Local Verfication**: Optimized JVM-target testing workflow (`./gradlew :composeApp:jvmTest`) for rapid feedback loops.
-* **CI/CD Ready**: Strict architectural rules enforced via documentation-first engineering (ADRs).
-
----
-
-## 🤖 Agentic Engineering Workflow
-
-GreenPrint is developed using a **Spec-Driven Agentic Workflow**, showcasing the future of professional software engineering where AI agents and human developers collaborate within a strict architectural framework.
-
-This project utilizes specialized AI context files to ensure that both **Gemini** and **Claude** agents operate with the same high standards and architectural awareness as a senior engineer:
-
-- **`GEMINI.md` & `CLAUDE.md`**: Foundational instruction sets that define project-specific conventions, mandatory pre-coding checklists, and architectural guardrails. These files act as the "Senior Architect" in the room, forcing the AI to validate every change against established patterns.
-- **`.gemini/` & `.claude/`**: Dedicated configuration directories containing custom skills and specialized agent definitions. This setup enables "Codebase-Aware Intelligence," where agents can autonomously research, plan, and execute complex refactors while respecting the [Architecture Decision Records (ADRs)](docs/architecture/decisions.md).
-- **The Process**: Every major feature begins with a **Research -> Strategy -> Execution** cycle. AI agents are required to perform empirical reproduction of bugs and draft design documents before writing a single line of production code.
-
-This methodology ensures that the codebase remains clean, consistent, and "Agent-Friendly," demonstrating a sophisticated mastery of modern AI-assisted development lifecycles.
-
----
-
-## 📁 Project Structure
-
-* **`/shared`**: The brains. Contains domain models, Ktor infrastructure, SQLDelight schemas, and KMP ViewModels. Consumed by all client targets.
-* **`/composeApp`**: The face. Pure UI layer using Compose Multiplatform. Targets Android, iOS, Desktop (JVM), and Web (Wasm).
-* **`/server`**: The backbone. Quarkus-based microservice handling persistence and auth.
-* **`/docs`**: The manual. [Architecture Decision Records (ADRs)](docs/architecture/decisions.md) and [Testing Strategy](docs/testing.md).
-
----
-
-## 💻 Developer Guide
-
-### Prerequisites
-* **JDK 21+**
-* **Android Studio / IntelliJ IDEA** (with KMP plugin)
-* **Atlas CLI** (for DB migrations)
-
-### Essential Commands
-
-| Target | Command |
+| Module | Holds |
 |---|---|
-| **Server (Dev Mode)** | `./gradlew :server:quarkusDev` |
-| **Android** | `./gradlew :composeApp:assembleDebug` |
-| **Desktop (JVM)** | `./gradlew :composeApp:run` |
-| **Web (Wasm)** | `./gradlew :composeApp:wasmJsBrowserDevelopmentRun` |
-| **Full UI Test Suite** | `./gradlew :composeApp:jvmTest` |
-| **DB Migration** | `atlas migrate apply --url $DB_URL` |
+| [`shared`](shared) | Domain models, ViewModels, repositories, the SQLDelight schema, Ktor and Koin wiring |
+| [`composeApp`](composeApp) | The Compose UI for every platform, plus the desktop, web and iOS entry points |
+| [`androidApp`](androidApp) | The Android application shell (AGP 9 keeps it apart from the KMP libraries) |
+| [`iosApp`](iosApp) | The Xcode project hosting the shared UI |
+| [`server`](server) | Quarkus REST API with Hibernate Panache, validation and Atlas migrations |
 
-> **Note:** When running in dev mode (`./gradlew :server:quarkusDev`), the database is dynamically populated with realistic test data (spaces, rooms, and plants) upon your first login. This ensures a "ready-to-go" experience tailored to your session.
+Decisions are recorded as [ADRs](docs/architecture/decisions.md); the
+[architecture overview](docs/architecture/overview.md) has the C4 diagrams and the sync strategy.
 
----
+**Stack:** Kotlin 2.4 · Compose Multiplatform 1.12 · Material 3 · Koin · Ktor · SQLDelight (sql.js worker on the web) · Voyager ·
+Quarkus · Hibernate Panache · PostgreSQL · Atlas · ktlint + Compose rules · detekt.
 
-## 🚀 Roadmap
+## Agentic engineering
 
-- [x] High-performance UI testing infrastructure (Zero-delay strategy).
-- [x] OIDC-secured Quarkus backend with Panache persistence.
-- [x] Atlas-driven declarative database migrations.
-- [ ] **Phase 1: Inventory Management** — Room CRUD and Plant lifecycle tracking.
-- [ ] **Phase 2: Spatial Blueprint** — Interactive 2D mapping and drag-and-drop placement.
-- [ ] **Phase 3: Intelligence** — AI-assisted plant care profiles via Vision LLMs.
+| Piece | Where |
+|---|---|
+| One instruction map for every agent: what to read for which task, the workflow, the gates | [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` and `.gemini/settings.json` point to it) |
+| The full workflow: instruction layers, the issue-to-merge loop, subagents, guardrails, infrastructure | [`docs/agentic/README.md`](docs/agentic/README.md) |
+| Project skills, loaded on demand, and the end-to-end recipe | [`.claude/skills/`](.claude/skills/README.md) |
+| A hook that refuses destructive commands, with tests | [`tools/agent_guard.py`](tools/agent_guard.py) |
+| Zero-findings gate: lint, static analysis, tests, builds | `./gradlew prePRcheck` ([ADR-016](docs/architecture/decisions.md)) |
+| A gate for the docs and the agent files | [`tools/docs_check.py`](tools/docs_check.py) |
+| Self-hosted CI on a public repository, closed to forks | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| Specs before code | [`docs/features/`](docs/README.md#features) |
 
-## 🤝 License
-Licensed under the [MIT License](LICENSE).
+## Run it
+
+Requires JDK 21+ (the build runs on JDK 25), Android Studio or IntelliJ IDEA with the Kotlin
+Multiplatform plugin, Xcode for iOS, and Docker for the server's dev database.
+
+```bash
+./gradlew :server:quarkusDev                           # API on :8080, Postgres via Dev Services, demo data
+./gradlew :composeApp:run                              # desktop
+./gradlew :composeApp:wasmJsBrowserDevelopmentRun      # web
+./gradlew :androidApp:installDebug                     # Android device or emulator
+open iosApp/iosApp.xcodeproj                           # iOS, run from Xcode
+```
+
+In dev mode the server fills the database with sample spaces, rooms and plants on first use. The
+apps also work without the server: changes wait in the local database and sync later. If an
+Android emulator cannot reach the server, start it with `-Dquarkus.http.host=0.0.0.0`.
+
+## Quality
+
+```bash
+./gradlew prePRcheck                                   # the whole gate, zero findings
+python3 tools/docs_check.py                            # docs and agent files
+python3 -m unittest discover -s tools -p 'test_*.py'   # the guard hook's tests
+```
+
+`prePRcheck` runs ktlint (with the Compose rules), detekt, the ViewModel tests, the Compose UI tests,
+the server's integration tests and the Android and Wasm builds. There are no baselines: a finding
+is fixed, or suppressed at its line with the reason beside it. See the [testing strategy](docs/testing.md).
+
+## Next steps
+
+- [Watering reminders](docs/features/notifications.md): local notifications when a plant gets thirsty.
+- Undo for a watering, and the local-first outbox for creating, editing and archiving plants
+  (moves and waterings already work offline).
+- Moving or archiving a room's plants when the room is deleted (today the app asks to empty it first).
+- Sign-in with OIDC: the server and the client's `AuthRepository` are ready for it (ADR-001, ADR-011).
+
+## License
+
+[MIT](LICENSE). The third-party agent skills in `.claude/skills/` are Apache-2.0
+([details](.claude/skills/README.md)).
