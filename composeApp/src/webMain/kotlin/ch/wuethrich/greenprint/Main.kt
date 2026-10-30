@@ -24,4 +24,5 @@ fun main() {
 }
 
 // webpack bundles the worker (src/webMain/resources) with sql.js, found through this URL.
+@OptIn(ExperimentalWasmJsInterop::class)
 private fun cacheWorker(): Worker = js("""new Worker(new URL("./greenprint-db.worker.js", import.meta.url))""")
