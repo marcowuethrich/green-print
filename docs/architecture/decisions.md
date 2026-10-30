@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Short records of the key decisions made before feature implementation began.
+Short records of the key architecture decisions: ADR-001 to ADR-014 were made before feature implementation began, the later ones as the project grew.
 
 ---
 
@@ -232,3 +232,45 @@ The application must be fully navigable and operable via keyboard. Every screen 
 - Production schema is owned by Atlas; `quarkus.hibernate-orm.schema-management.strategy=none` in prod.
 - Dev/test profiles still use Hibernate's `update` / `drop-and-create` for fast iteration — keep entity DDL and Atlas migrations in sync (e.g., `gen_random_uuid()` defaults must be expressible by both, or moved off the test path).
 - Schema changes are made by adding a new versioned SQL file in `server/migrations/`, not by editing applied migrations. Re-hash with `atlas migrate hash` if the directory uses integrity tracking.
+
+---
+
+## ADR-015 — Android Build: An `androidApp` Module Beside the KMP Libraries (AGP 9)
+
+**Decision:** The installable Android app is its own module, `androidApp`, built with `com.android.application`. `composeApp` and `shared` are Kotlin Multiplatform libraries whose Android target uses `com.android.kotlin.multiplatform.library`. No module applies `org.jetbrains.kotlin.android`: AGP 9 compiles Kotlin itself.
+
+**Rationale:**
+- AGP 9 no longer supports `com.android.application` (or `com.android.library`) in a module that applies the Kotlin Multiplatform plugin; the Android target of a KMP module must be the KMP Android library plugin.
+- The split is the layout JetBrains and Google recommend for Compose Multiplatform apps, so new templates, guides and tooling match the project.
+- The app module stays small: `MainActivity`, the Koin `Application`, the manifest and the launcher resources. Everything shared stays in `composeApp` and `shared`.
+
+**Layout:**
+- `androidApp`: `applicationId`, `targetSdk`, versioning, packaging and build types.
+- `composeApp`: the Compose UI for every platform as an Android library (`namespace ch.wuethrich.greenprint.composeapp`, Compose resources shipped as Android assets) plus the Desktop, Web and iOS entry points.
+- `shared`: the KMP library with ViewModels, repositories and the SQLDelight cache.
+
+**Consequences:**
+- Android runs and installs from `:androidApp` (`./gradlew :androidApp:assembleDebug`, `:androidApp:installDebug`); `:composeApp` has no Android app task.
+- Android-only app wiring (activities, `Application`, manifest entries such as permissions for notifications) goes into `androidApp`; Android code the shared UI needs goes into `composeApp/src/androidMain`.
+- The Kotlin compiler options for Android live in each module's `kotlin {}` block, since there is no Kotlin Android plugin to configure.
+
+---
+
+## ADR-016 — Code Quality: A Zero-Findings Gate (`prePRcheck`)
+
+**Decision:** Every module is checked by **ktlint** (with the [Compose rules](https://mrmans0n.github.io/compose-rules/)) and **detekt**, and the tree is kept at **zero findings**. There are no baseline files and no thresholds raised to hide findings. `./gradlew prePRcheck` runs the whole gate locally before a pull request.
+
+**Rules:**
+- **Configuration**: ktlint and the Compose rules are configured in `.editorconfig` (`intellij_idea` style, so IntelliJ's formatter and `ktlintFormat` agree); detekt runs its default rules plus `config/detekt/detekt.yml`, which only adds detekt's documented Compose settings and the project's target names.
+- **A finding is fixed in the code.** A suppression is the exception: it sits on the one declaration or expression it covers, never on a file or class, with the reason in a comment beside it.
+- **The gate**: `prePRcheck` runs `ktlintCheck` and `detekt` on every module, the `shared`, Compose UI and server tests, and the Android debug and Wasm builds.
+
+**Rationale:**
+- A baseline turns old findings into accepted debt that nobody revisits; a gate that is always at zero makes every new finding visible in the change that introduced it.
+- The Compose rules encode the conventions the style guide asks for (a `modifier` on every emitting composable, parameter order, event names, no ViewModels passed down) so review time goes to behaviour.
+- One task is one command to run before a pull request, and the same command for CI to call.
+
+**Consequences:**
+- A change that adds a finding fails the build; `./gradlew ktlintFormat` fixes most formatting findings automatically.
+- detekt 1.23 is pinned to the Kotlin compiler it was built with and runs without type resolution (only the `detekt` task per module; the per-source-set tasks are off) until detekt 2.x reads the current JDK.
+- Raising a threshold or adding a baseline is a change to this ADR, not a local workaround.
