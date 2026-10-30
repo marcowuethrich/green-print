@@ -98,6 +98,21 @@ DELETE FROM PlantEntity WHERE id = ?;
 deleteAllPlants:
 DELETE FROM PlantEntity;
 
+-- Blueprint moves are written through: the local row moves first, marked S_PENDING, then the
+-- server confirms it. updatedAt stamps each move, so a server answer only settles the move it was
+-- sent for, never a newer one made while it was on the way.
+updatePlantPosition:
+UPDATE PlantEntity SET x = :x, y = :y, syncStatus = :syncStatus, updatedAt = :updatedAt WHERE id = :id;
+
+updatePlantSyncStatusIfUnchanged:
+UPDATE PlantEntity SET syncStatus = :syncStatus WHERE id = :id AND updatedAt = :updatedAt;
+
+selectUnsyncedPlantsByRoomId:
+SELECT * FROM PlantEntity WHERE roomId = ? AND syncStatus != 'S_SYNCED';
+
+deleteSyncedPlantsByRoomId:
+DELETE FROM PlantEntity WHERE roomId = ? AND syncStatus = 'S_SYNCED';
+
 -- Watering Event Queries
 insertWateringEvent:
 INSERT OR REPLACE INTO WateringEventEntity(id, plantId, timestamp, syncStatus, updatedAt) VALUES (?, ?, ?, ?, ?);

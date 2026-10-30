@@ -74,6 +74,9 @@ class FakePlantRepository : PlantRepository {
     var archiveResult: NetworkResult<Plant>? = null
     var deleteResult: NetworkResult<Unit> = NetworkResult.Success(Unit)
 
+    /** Every blueprint move, in order, as the repository received it. */
+    val positionUpdates = mutableListOf<PositionUpdate>()
+
     fun emit(result: NetworkResult<List<Plant>>) {
         flow.tryEmit(result)
     }
@@ -89,10 +92,23 @@ class FakePlantRepository : PlantRepository {
     override suspend fun updatePlant(id: String, request: UpdatePlantRequest): NetworkResult<Plant> =
         updateResult ?: NetworkResult.Failure(NetworkError.NotFound)
 
+    override suspend fun updatePlantPosition(id: String, x: Float, y: Float): NetworkResult<Plant> {
+        positionUpdates += PositionUpdate(id, x, y)
+        // Like the real repository: the observed list shows the move at once (write-through).
+        val plants = (flow.replayCache.lastOrNull() as? NetworkResult.Success)?.data.orEmpty()
+        emitPlants(plants.map { if (it.id == id) it.copy(x = x, y = y) else it })
+        return plants
+            .firstOrNull { it.id == id }
+            ?.let { NetworkResult.Success(it.copy(x = x, y = y)) }
+            ?: NetworkResult.Failure(NetworkError.NotFound)
+    }
+
     override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> =
         archiveResult ?: NetworkResult.Failure(NetworkError.NotFound)
 
     override suspend fun deletePlant(id: String): NetworkResult<Unit> = deleteResult
+
+    data class PositionUpdate(val plantId: String, val x: Float, val y: Float)
 }
 
 private fun <T> replayingFlow(): MutableSharedFlow<T> =
