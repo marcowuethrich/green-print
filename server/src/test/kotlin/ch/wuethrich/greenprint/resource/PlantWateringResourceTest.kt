@@ -21,6 +21,9 @@ import org.junit.jupiter.api.parallel.ResourceLock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /** `POST /plants/{id}/waterings` (inventory.md §5). */
 @QuarkusTest
@@ -40,7 +43,7 @@ class PlantWateringResourceTest {
     fun `a watering sets the plant's last watered date`() {
         val roomId = createRoom()
         val plantId = createPlant(roomId)
-        val wateredAt = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        val wateredAt = afterCreation()
 
         val watered = water(plantId, wateredAt = wateredAt)
             .then().statusCode(200)
@@ -58,7 +61,7 @@ class PlantWateringResourceTest {
     fun `a resent watering is recorded once`() {
         val plantId = createPlant(createRoom())
         val wateringId = UUID.randomUUID().toString()
-        val wateredAt = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        val wateredAt = afterCreation()
 
         water(plantId, wateringId, wateredAt).then().statusCode(200)
         water(plantId, wateringId, wateredAt).then().statusCode(200)
@@ -68,9 +71,33 @@ class PlantWateringResourceTest {
 
     @Test
     @TestSecurity(user = "alice", roles = ["user"])
+    fun `the same watering sent several times at once is recorded once and answered as a success`() {
+        val plantId = createPlant(createRoom())
+        val wateringId = UUID.randomUUID().toString()
+        val wateredAt = afterCreation()
+        val start = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(SIMULTANEOUS_SENDS)
+
+        val answers = try {
+            List(SIMULTANEOUS_SENDS) {
+                pool.submit<Plant> {
+                    start.await()
+                    water(plantId, wateringId, wateredAt).then().statusCode(200).extract().`as`(Plant::class.java)
+                }
+            }.also { start.countDown() }.map { it.get(1, TimeUnit.MINUTES) }
+        } finally {
+            pool.shutdownNow()
+        }
+
+        assertEquals(1L, wateringCount())
+        answers.forEach { assertEquals(wateredAt, Instant.parse(it.lastWateredDate)) }
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
     fun `an older watering is logged but keeps the newer date`() {
         val plantId = createPlant(createRoom())
-        val latest = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        val latest = afterCreation()
         water(plantId, wateredAt = latest).then().statusCode(200)
 
         val watered = water(plantId, wateredAt = latest.minus(2, ChronoUnit.DAYS))
@@ -192,4 +219,12 @@ class PlantWateringResourceTest {
         .then().statusCode(201)
         .extract().`as`(Plant::class.java)
         .id
+
+    // A new plant counts as watered when it is created, so a watering that should move the date comes
+    // after that, in whole seconds as a client sends it.
+    private fun afterCreation(): Instant = Instant.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1)
+
+    private companion object {
+        const val SIMULTANEOUS_SENDS = 8
+    }
 }

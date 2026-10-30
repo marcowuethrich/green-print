@@ -9,9 +9,11 @@ import ch.wuethrich.greenprint.model.ArchivePlantRequest
 import ch.wuethrich.greenprint.model.RecordWateringRequest
 import ch.wuethrich.greenprint.model.UpdatePlantPositionRequest
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
+import io.quarkus.hibernate.reactive.panache.kotlin.Panache
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import jakarta.inject.Inject
+import jakarta.persistence.LockModeType
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.POST
@@ -72,8 +74,9 @@ class PlantResource {
 
     /**
      * Records a watering (inventory.md §5) and returns the plant with its new `lastWateredDate`. The
-     * client picks the watering's id, so a resent watering is stored once; a watering older than the
-     * plant's last one is logged but leaves `lastWateredDate` as it is.
+     * client picks the watering's id, so a resent watering is stored once and answered like the first,
+     * even when both arrive at the same time; a watering older than the plant's last one is logged but
+     * leaves `lastWateredDate` as it is.
      */
     @POST
     @Path("/{id}/waterings")
@@ -81,6 +84,10 @@ class PlantResource {
         val wateringId = validateWateringId(request.id)
         val wateredAt = validateWateredAt(request.timestamp, now = Instant.now())
         val plant = findOwnedPlant(id) ?: return@withTx notFound()
+        // Waterings of one plant take turns: a resend that raced the first sees it stored, and the
+        // plant as that one left it.
+        Panache.getSession().chain { session -> session.refresh(plant, LockModeType.PESSIMISTIC_WRITE) }
+            .awaitSuspending()
 
         val existing = WateringEventEntity.findById(wateringId).awaitSuspending()
         when {
