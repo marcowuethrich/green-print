@@ -2,7 +2,7 @@
 name: kotlin-ui-compose-multiplatform
 description: Use when designing, implementing, or reviewing shared UI in Compose Multiplatform projects, including state-driven architecture, composable decomposition, layout/modifier discipline, adaptive behavior, and previewable shared UI in common source sets.
 TRIGGER when: user writes or reviews @Composable functions, shared UI in commonMain, modifier chains, CompositionLocal, remember, LaunchedEffect, Compose previews, or asks about composable decomposition and layout in a KMP project.
-SKIP: data-layer code, navigation graph setup (use kotlin-navigation-compose-multiplatform), expect/actual platform bridges (use kotlin-platform-kmp-bridges).
+SKIP: data-layer code, navigation graph setup, expect/actual platform bridges.
 license: Apache-2.0
 metadata:
   author: Mariano Miani
@@ -187,7 +187,7 @@ Flag as a concern when:
 
 Kotlin's adaptive-layout docs support window-size-driven adaptation.
 
-This skill reviews whether shared UI is *structurally ready* for adaptive behavior — composed cleanly enough that adaptive variations can be added without a full rewrite. For deep guidance covering canonical layouts, multi-window support, list-detail patterns, supporting-pane behavior, and the full adaptive review framework, use the `kotlin-ui-adaptive-resources` skill.
+This skill reviews whether shared UI is *structurally ready* for adaptive behavior — composed cleanly enough that adaptive variations can be added without a full rewrite. For deep guidance covering canonical layouts, multi-window support, list-detail patterns, supporting-pane behavior, and the full adaptive review framework, see the official Compose adaptive layout guidance.
 
 Check whether:
 - shared UI can adapt between compact, medium, and expanded layouts where appropriate
@@ -202,7 +202,7 @@ Flag as a concern when:
 
 ### 10. Window-size-driven UI decisions
 
-Adaptive docs provide structured size-class APIs (`rememberWindowAdaptiveInfo()`, `WindowWidthSizeClass`) for layout decisions. For full guidance on these APIs and canonical adaptive patterns, use the `kotlin-ui-adaptive-resources` skill. This section reviews structural readiness in shared UI.
+Adaptive docs provide structured size-class APIs (`rememberWindowAdaptiveInfo()`, `WindowWidthSizeClass`) for layout decisions. For full guidance on these APIs and canonical adaptive patterns, see the official Compose adaptive layout guidance. This section reviews structural readiness in shared UI.
 
 Check whether:
 - major shell/layout decisions can be expressed through structured window-size reasoning, not hardcoded dp breakpoints

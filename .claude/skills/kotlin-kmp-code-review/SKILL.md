@@ -1,8 +1,8 @@
 ---
-name: kotlin-project-code-review
+name: kotlin-kmp-code-review
 description: Use when reviewing implemented Kotlin Multiplatform / Compose Multiplatform code for architecture consistency, business-logic placement, state correctness, concurrency, Compose quality, design-system usage, security, performance, resilience, and maintainability.
 TRIGGER when: user says "review this", "check this code", "is this correct", "give me feedback", or shares an implementation and wants quality/correctness feedback; reviewing a PR or a changed file.
-SKIP: high-level architecture design proposals (use kotlin-project-architecture-review); build config review (use kotlin-build-kmp-gradle-governance).
+SKIP: high-level architecture design proposals (write an ADR in docs/architecture/decisions.md); build config review.
 license: Apache-2.0
 metadata:
   author: Mariano Miani
@@ -21,7 +21,7 @@ This skill is for **implementation review**: applied code, refactors, PRs, and b
 
 It should be usable **on its own** for normal code review. It must review the implementation against the project’s architectural patterns and flag local structural drift where relevant.
 
-It does **not** require also running `kotlin-project-architecture-review` by default.
+It does **not** require an architecture review by default.
 
 However, if the implementation appears to materially change:
 - module boundaries
@@ -33,7 +33,7 @@ However, if the implementation appears to materially change:
 - manifest/exported surface
 - feature-level layering strategy
 
-then explicitly say the change also warrants `kotlin-project-architecture-review`.
+then explicitly say the change also warrants an architecture review (a new or updated ADR).
 
 ---
 
@@ -808,7 +808,7 @@ Because this is a KMP project, check for:
 - shared logic depending indirectly on platform-only behavior
 - platform abstractions that are too wide or too leaky
 
-If the implementation starts changing source-set placement, shared-vs-platform ownership, or target-specific architectural boundaries, say that the change should also be reviewed with `kotlin-project-architecture-review`.
+If the implementation starts changing source-set placement, shared-vs-platform ownership, or target-specific architectural boundaries, say that the change should also be reviewed with an architecture review (a new or updated ADR).
 
 ---
 
@@ -893,7 +893,7 @@ If the implementation appears to materially change:
 - Android entry-point ownership
 - feature-level source of truth ownership
 
-then state clearly that the PR/code review should also be evaluated with `kotlin-project-architecture-review`.
+then state clearly that the PR/code review should also be evaluated with an architecture review (a new or updated ADR).
 
 ### Step 5: Summarize findings clearly
 When reporting or reviewing, structure the output as:
