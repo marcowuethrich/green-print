@@ -1,13 +1,16 @@
 package ch.wuethrich.greenprint.plant
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import ch.wuethrich.greenprint.db.GreenPrintDb
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
 import ch.wuethrich.greenprint.db.PlantEntity
+import ch.wuethrich.greenprint.db.WateringEventEntity
 import ch.wuethrich.greenprint.model.CreatePlantRequest
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.RecordWateringRequest
 import ch.wuethrich.greenprint.model.SyncStatus
 import ch.wuethrich.greenprint.model.UpdatePlantPositionRequest
 import ch.wuethrich.greenprint.repository.PlantRepositoryImpl
@@ -51,11 +54,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * [PlantViewModel] over the real [PlantRepositoryImpl] and an in-memory SQLite cache, with the
- * server played by a Ktor [MockEngine]: blueprint moves are written through to the device first
- * and survive being offline (spatial_blueprint.md §2).
+ * server played by a Ktor [MockEngine]: blueprint moves and waterings are written through to the
+ * device first and survive being offline (spatial_blueprint.md §2, inventory.md §5).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlantViewModelTest {
@@ -155,8 +160,78 @@ class PlantViewModelTest {
         assertTrue(created.x in 0f..1f && created.y in 0f..1f)
     }
 
+    @Test
+    fun `an online watering is logged on the device and on the server`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val effects = collectEffects(viewModel)
+
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+
+        val sent = server.waterings.single()
+        assertEquals(NOW.toString(), sent.timestamp)
+        assertEquals(NOW.toString(), server.plants.getValue(FERN.id).lastWateredDate)
+        assertEquals(SyncStatus.SYNCED, localWaterings().single().syncStatus)
+        assertEquals(sent.id, localWaterings().single().id)
+        assertEquals(NOW.toString(), shownFern(viewModel).lastWateredDate)
+        assertEquals(1f, PlantCareUtils.calculateHydration(shownFern(viewModel), now = NOW))
+        assertEquals(listOf<PlantUiEffect>(PlantUiEffect.Saved(PlantChange.WATERED)), effects)
+    }
+
+    @Test
+    fun `an offline watering fills the hydration bar at once and is reported`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        val effects = collectEffects(viewModel)
+        server.online = false
+
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+
+        assertEquals(NOW.toString(), shownFern(viewModel).lastWateredDate)
+        assertEquals(1f, PlantCareUtils.calculateHydration(shownFern(viewModel), now = NOW))
+        assertEquals(SyncStatus.ERROR, localWaterings().single().syncStatus)
+        assertEquals(listOf<PlantUiEffect>(PlantUiEffect.WateringSavedOffline), effects)
+        assertEquals(null, server.plants.getValue(FERN.id).lastWateredDate)
+    }
+
+    @Test
+    fun `an offline watering is sent once on the next refresh and kept over the server's copy`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        server.online = false
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+        val wateringId = localWaterings().single().id
+
+        server.online = true
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(listOf(wateringId), server.waterings.map { it.id })
+        assertEquals(NOW.toString(), server.plants.getValue(FERN.id).lastWateredDate)
+        assertEquals(SyncStatus.SYNCED, localWaterings().single().syncStatus)
+        assertEquals(NOW.toString(), shownFern(viewModel).lastWateredDate)
+    }
+
+    @Test
+    fun `an offline watering survives a restart`() = runTest(dispatcher) {
+        val viewModel = openRoom()
+        server.online = false
+        viewModel.waterPlant(FERN.id)
+        advanceUntilIdle()
+
+        val restarted = openRoom()
+
+        assertEquals(NOW.toString(), shownFern(restarted).lastWateredDate)
+    }
+
     private fun TestScope.openRoom(): PlantViewModel {
-        val repository = PlantRepositoryImpl(server.client(), BASE_URL, queries, dbDispatcher = dispatcher)
+        val repository = PlantRepositoryImpl(
+            httpClient = server.client(),
+            baseUrl = BASE_URL,
+            queries = queries,
+            dbDispatcher = dispatcher,
+            clock = FixedClock,
+        )
         return PlantViewModel(repository).also {
             it.loadPlants(ROOM_ID)
             advanceUntilIdle()
@@ -170,6 +245,9 @@ class PlantViewModelTest {
     }
 
     private suspend fun localFern(): PlantEntity = queries.selectPlantById(FERN.id).awaitAsOne()
+
+    private suspend fun localWaterings(): List<WateringEventEntity> =
+        queries.selectWateringEventsByPlantId(FERN.id).awaitAsList()
 
     private fun PlantEntity.position(): Pair<Float, Float> = x.toFloat() to y.toFloat()
 
@@ -192,6 +270,11 @@ class PlantViewModelTest {
         const val BASE_URL = "http://localhost:8080"
         const val ROOM_ID = "room-1"
         val FERN = Plant(id = "plant-1", roomId = ROOM_ID, name = "Fern", wateringIntervalDays = 5, x = 0.5f, y = 0.5f)
+        val NOW: Instant = Instant.parse("2026-10-30T10:00:00Z")
+    }
+
+    private object FixedClock : Clock {
+        override fun now(): Instant = NOW
     }
 }
 
@@ -201,6 +284,7 @@ private class FakePlantServer(private val dispatcher: CoroutineDispatcher) {
     val plants = linkedMapOf<String, Plant>()
     val positionUpdates = mutableListOf<UpdatePlantPositionRequest>()
     val created = mutableListOf<CreatePlantRequest>()
+    val waterings = mutableListOf<RecordWateringRequest>()
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -231,6 +315,16 @@ private class FakePlantServer(private val dispatcher: CoroutineDispatcher) {
                 val moved = plants[id]?.copy(x = move.x, y = move.y) ?: return respondError(HttpStatusCode.NotFound)
                 plants[id] = moved
                 respondJson(moved)
+            }
+
+            request.method == HttpMethod.Post && path.endsWith("/waterings") -> {
+                val id = path.removePrefix("/plants/").removeSuffix("/waterings")
+                val watering = json.decodeFromString<RecordWateringRequest>(request.bodyText())
+                if (waterings.none { it.id == watering.id }) waterings += watering
+                val watered = plants[id]?.copy(lastWateredDate = watering.timestamp)
+                    ?: return respondError(HttpStatusCode.NotFound)
+                plants[id] = watered
+                respondJson(watered)
             }
 
             request.method == HttpMethod.Post && path.endsWith("/plants") -> {

@@ -161,7 +161,10 @@ class PlantWateringResourceTest {
 
     private fun wateringCount(): Long = sf
         .withSession { session ->
-            session.createSelectionQuery("SELECT count(*) FROM WateringEventEntity", Long::class.javaObjectType).singleResult
+            session.createSelectionQuery(
+                "SELECT count(*) FROM WateringEventEntity",
+                Long::class.javaObjectType,
+            ).singleResult
         }.await()
         .indefinitely()
 

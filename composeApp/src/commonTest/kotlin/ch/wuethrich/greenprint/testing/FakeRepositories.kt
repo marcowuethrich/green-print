@@ -103,8 +103,25 @@ class FakePlantRepository : PlantRepository {
             ?: NetworkResult.Failure(NetworkError.NotFound)
     }
 
-    override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> =
-        archiveResult ?: NetworkResult.Failure(NetworkError.NotFound)
+    /** Every plant watered, in order; [waterResult] answers, by default a success. */
+    val waterings = mutableListOf<String>()
+    var waterResult: NetworkResult<Plant>? = null
+
+    override suspend fun waterPlant(id: String): NetworkResult<Plant> {
+        waterings += id
+        val plants = (flow.replayCache.lastOrNull() as? NetworkResult.Success)?.data.orEmpty()
+        return waterResult
+            ?: plants.firstOrNull { it.id == id }?.let { NetworkResult.Success(it) }
+            ?: NetworkResult.Failure(NetworkError.NotFound)
+    }
+
+    /** Every archive request, in order, with the plant's id. */
+    val archives = mutableListOf<Pair<String, ArchivePlantRequest>>()
+
+    override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> {
+        archives += id to request
+        return archiveResult ?: NetworkResult.Failure(NetworkError.NotFound)
+    }
 
     override suspend fun deletePlant(id: String): NetworkResult<Unit> = deleteResult
 

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.plant.WateringInterval
 import ch.wuethrich.greenprint.ui.components.CancelSaveButtons
 import ch.wuethrich.greenprint.ui.components.DialogTitle
 import ch.wuethrich.greenprint.ui.components.RequestInitialFocus
@@ -39,14 +40,14 @@ import greenprint.composeapp.generated.resources.plant_name_label
 import greenprint.composeapp.generated.resources.plant_species_label
 import org.jetbrains.compose.resources.stringResource
 
-private const val DEFAULT_INTERVAL_DAYS = 7
+private val MAX_INTERVAL_DIGITS = WateringInterval.MAX_DAYS.toString().length
 
 /** The form's fields, seeded from the plant being edited or the defaults for a new one. */
 @Stable
 private class PlantFormState(private val plant: Plant?) {
     private val initialName = plant?.name.orEmpty()
     private val initialSpecies = plant?.species.orEmpty()
-    private val initialInterval = (plant?.wateringIntervalDays ?: DEFAULT_INTERVAL_DAYS).toString()
+    private val initialInterval = (plant?.wateringIntervalDays ?: WateringInterval.DEFAULT_DAYS).toString()
 
     var name by mutableStateOf(TextFieldValue(initialName, TextRange(0, initialName.length)))
     var species by mutableStateOf(TextFieldValue(initialSpecies, TextRange(initialSpecies.length)))
@@ -61,7 +62,9 @@ private class PlantFormState(private val plant: Plant?) {
 
     val speciesOrNull: String? get() = species.text.takeIf { it.isNotBlank() }
 
-    val intervalOrDefault: Int get() = intervalDays.toIntOrNull() ?: DEFAULT_INTERVAL_DAYS
+    /** The interval to save, clamped into the range the server accepts (inventory.md §2). */
+    val intervalOrDefault: Int
+        get() = (intervalDays.toIntOrNull() ?: WateringInterval.DEFAULT_DAYS).coerceIn(WateringInterval.range)
 }
 
 /** Adds a plant, or edits [plant] when one is given. */
@@ -118,7 +121,7 @@ private fun PlantFormFields(form: PlantFormState, focusRequester: FocusRequester
         )
         OutlinedTextField(
             value = form.intervalDays,
-            onValueChange = { if (it.all(Char::isDigit)) form.intervalDays = it },
+            onValueChange = { if (it.length <= MAX_INTERVAL_DIGITS && it.all(Char::isDigit)) form.intervalDays = it },
             label = { Text(stringResource(Res.string.plant_interval_label)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
@@ -130,7 +133,7 @@ private fun PlantFormFields(form: PlantFormState, focusRequester: FocusRequester
     }
 }
 
-/** Up and Down step the interval by a day (ADR-013); Down stops at one. */
+/** Up and Down step the interval by a day (ADR-013), within [WateringInterval.range]. */
 private fun Modifier.stepDaysWithArrowKeys(days: String, onDaysChange: (String) -> Unit): Modifier =
     onPreviewKeyEvent { event ->
         val current = days.toIntOrNull() ?: 0
@@ -138,8 +141,11 @@ private fun Modifier.stepDaysWithArrowKeys(days: String, onDaysChange: (String) 
             (event.key == Key.DirectionUp || event.key == Key.DirectionDown)
         if (handled) {
             when {
-                event.key == Key.DirectionUp -> onDaysChange((current + 1).toString())
-                current > 1 -> onDaysChange((current - 1).toString())
+                event.key == Key.DirectionUp && current < WateringInterval.MAX_DAYS ->
+                    onDaysChange((current + 1).toString())
+
+                event.key == Key.DirectionDown && current > WateringInterval.MIN_DAYS ->
+                    onDaysChange((current - 1).toString())
             }
         }
         handled

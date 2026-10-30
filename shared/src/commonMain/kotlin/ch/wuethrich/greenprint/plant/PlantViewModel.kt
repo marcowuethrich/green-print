@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ch.wuethrich.greenprint.model.ArchivePlantRequest
 import ch.wuethrich.greenprint.model.CreatePlantRequest
+import ch.wuethrich.greenprint.model.ErrorReason
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Plant
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
+import ch.wuethrich.greenprint.model.toErrorReason
 import ch.wuethrich.greenprint.repository.PlantRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,15 +26,21 @@ import kotlinx.coroutines.launch
 sealed interface PlantUiState {
     data object Loading : PlantUiState
     data class Success(val plants: List<Plant>) : PlantUiState
-    data class Error(val message: String) : PlantUiState
+    data class Error(val reason: ErrorReason) : PlantUiState
 }
 
+/** What a plant action changed, for the UI to confirm. */
+enum class PlantChange { ADDED, UPDATED, WATERED, ARCHIVED, DELETED }
+
 sealed interface PlantUiEffect {
-    data class ValidationError(val message: String) : PlantUiEffect
-    data class SuccessEffect(val message: String) : PlantUiEffect
+    data class Saved(val change: PlantChange) : PlantUiEffect
+    data class Failed(val reason: ErrorReason) : PlantUiEffect
 
     /** A blueprint move is saved on this device only; the next refresh sends it to the server. */
     data object PositionSavedOffline : PlantUiEffect
+
+    /** A watering is saved on this device only; the next refresh sends it to the server. */
+    data object WateringSavedOffline : PlantUiEffect
 }
 
 class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel() {
@@ -77,15 +85,7 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
                 x = position.x,
                 y = position.y,
             )
-            when (val result = plantRepository.createPlant(roomId, request)) {
-                is NetworkResult.Success -> {
-                    _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant added successfully"))
-                }
-
-                is NetworkResult.Failure -> {
-                    _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
-                }
-            }
+            report(plantRepository.createPlant(roomId, request), PlantChange.ADDED)
         }
     }
 
@@ -102,15 +102,7 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
                 x = plant.x,
                 y = plant.y,
             )
-            when (val result = plantRepository.updatePlant(plant.id, request)) {
-                is NetworkResult.Success -> {
-                    _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant updated"))
-                }
-
-                is NetworkResult.Failure -> {
-                    _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
-                }
-            }
+            report(plantRepository.updatePlant(plant.id, request), PlantChange.UPDATED)
         }
     }
 
@@ -128,7 +120,7 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
                     if (result.error == NetworkError.Connectivity) {
                         PlantUiEffect.PositionSavedOffline
                     } else {
-                        PlantUiEffect.ValidationError(result.error.toMessage())
+                        PlantUiEffect.Failed(result.error.toPlantReason())
                     },
                 )
             }
@@ -138,37 +130,39 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
     fun archivePlant(id: String, reason: String) {
         viewModelScope.launch {
             val request = ArchivePlantRequest(reason = reason)
-            when (val result = plantRepository.archivePlant(id, request)) {
-                is NetworkResult.Success -> {
-                    _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant archived"))
-                }
-
-                is NetworkResult.Failure -> {
-                    _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
-                }
-            }
+            report(plantRepository.archivePlant(id, request), PlantChange.ARCHIVED)
         }
     }
 
     fun deletePlant(id: String) {
         viewModelScope.launch {
-            when (val result = plantRepository.deletePlant(id)) {
-                is NetworkResult.Success -> {
-                    _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant deleted"))
-                }
+            report(plantRepository.deletePlant(id), PlantChange.DELETED)
+        }
+    }
 
-                is NetworkResult.Failure -> {
-                    _uiEffect.emit(PlantUiEffect.ValidationError(result.error.toMessage()))
-                }
+    /**
+     * Waters a plant now (Quick Water, inventory.md §5). The repository logs the watering on this
+     * device before it calls the server, so the hydration bar fills at once and an offline watering is
+     * kept and only reported.
+     */
+    fun waterPlant(plantId: String) {
+        viewModelScope.launch {
+            val result = plantRepository.waterPlant(plantId)
+            if (result is NetworkResult.Failure && result.error == NetworkError.Connectivity) {
+                _uiEffect.emit(PlantUiEffect.WateringSavedOffline)
+            } else {
+                report(result, PlantChange.WATERED)
             }
         }
     }
 
-    // Quick Water is a UI stub until watering events are persisted (inventory.md §5).
-    fun waterPlant(@Suppress("UnusedParameter") plantId: String) {
-        viewModelScope.launch {
-            _uiEffect.emit(PlantUiEffect.SuccessEffect("Plant watered!"))
-        }
+    private suspend fun report(result: NetworkResult<*>, change: PlantChange) {
+        _uiEffect.emit(
+            when (result) {
+                is NetworkResult.Success -> PlantUiEffect.Saved(change)
+                is NetworkResult.Failure -> PlantUiEffect.Failed(result.error.toPlantReason())
+            },
+        )
     }
 
     private suspend fun observePlants(roomId: String) {
@@ -181,7 +175,7 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
                 is NetworkResult.Failure -> {
                     // Only show error if we don't already have data (offline-first)
                     if (_uiState.value !is PlantUiState.Success) {
-                        _uiState.value = PlantUiState.Error(result.error.toMessage())
+                        _uiState.value = PlantUiState.Error(result.error.toPlantReason())
                     }
                 }
             }
@@ -191,13 +185,5 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
     private fun currentPlants(): List<Plant> = (_uiState.value as? PlantUiState.Success)?.plants.orEmpty()
 }
 
-private fun NetworkError.toMessage(): String = when (this) {
-    NetworkError.Unauthorized -> "Please log in again."
-    NetworkError.Forbidden -> "You don't have permission."
-    NetworkError.NotFound -> "Plant not found."
-    NetworkError.Conflict -> "This plant already exists."
-    NetworkError.ServerError -> "Server error."
-    NetworkError.Connectivity -> "Check your connection."
-    is NetworkError.Validation -> "Invalid input."
-    is NetworkError.Unknown -> message ?: "Error occurred."
-}
+// A plant's name is unique in its room, so a 409 on a plant names that.
+private fun NetworkError.toPlantReason(): ErrorReason = toErrorReason(conflict = ErrorReason.PLANT_NAME_TAKEN)

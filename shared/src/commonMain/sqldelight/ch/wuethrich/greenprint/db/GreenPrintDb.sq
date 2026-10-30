@@ -110,8 +110,21 @@ UPDATE PlantEntity SET syncStatus = :syncStatus WHERE id = :id AND updatedAt = :
 selectUnsyncedPlantsByRoomId:
 SELECT * FROM PlantEntity WHERE roomId = ? AND syncStatus != 'S_SYNCED';
 
+-- A plant changed on this device keeps its local row on a refresh (last write wins): a move the
+-- server has not confirmed, or a watering it has not received yet.
+selectLocallyChangedPlantIdsByRoomId:
+SELECT id FROM PlantEntity WHERE roomId = :roomId AND (
+    syncStatus != 'S_SYNCED' OR id IN (SELECT plantId FROM WateringEventEntity WHERE syncStatus != 'S_SYNCED')
+);
+
 deleteSyncedPlantsByRoomId:
-DELETE FROM PlantEntity WHERE roomId = ? AND syncStatus = 'S_SYNCED';
+DELETE FROM PlantEntity WHERE roomId = :roomId AND syncStatus = 'S_SYNCED'
+    AND id NOT IN (SELECT plantId FROM WateringEventEntity WHERE syncStatus != 'S_SYNCED');
+
+-- A watering is written through like a move: the plant's lastWateredDate moves at once, the
+-- watering waits in WateringEventEntity until the server has it.
+updatePlantLastWatered:
+UPDATE PlantEntity SET lastWateredDate = :lastWateredDate WHERE id = :id;
 
 -- Watering Event Queries
 insertWateringEvent:
@@ -119,6 +132,21 @@ INSERT OR REPLACE INTO WateringEventEntity(id, plantId, timestamp, syncStatus, u
 
 selectWateringEventsByPlantId:
 SELECT * FROM WateringEventEntity WHERE plantId = ? ORDER BY timestamp DESC;
+
+selectUnsyncedWateringEventsByPlantId:
+SELECT * FROM WateringEventEntity WHERE plantId = ? AND syncStatus != 'S_SYNCED';
+
+selectUnsyncedWateringEventsByRoomId:
+SELECT WateringEventEntity.* FROM WateringEventEntity
+JOIN PlantEntity ON PlantEntity.id = WateringEventEntity.plantId
+WHERE PlantEntity.roomId = ? AND WateringEventEntity.syncStatus != 'S_SYNCED'
+ORDER BY WateringEventEntity.timestamp;
+
+updateWateringEventSyncStatus:
+UPDATE WateringEventEntity SET syncStatus = :syncStatus WHERE id = :id;
+
+deleteWateringEventsByPlantId:
+DELETE FROM WateringEventEntity WHERE plantId = ?;
 
 deleteAllWateringEvents:
 DELETE FROM WateringEventEntity;

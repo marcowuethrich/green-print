@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import ch.wuethrich.greenprint.model.ArchiveReason
 import ch.wuethrich.greenprint.model.Plant
 import ch.wuethrich.greenprint.plant.HydrationLevel
 import ch.wuethrich.greenprint.plant.PlantCareUtils
@@ -30,14 +31,11 @@ import greenprint.composeapp.generated.resources.common_edit
 import greenprint.composeapp.generated.resources.ic_leaf
 import greenprint.composeapp.generated.resources.plant_archive_died
 import greenprint.composeapp.generated.resources.plant_archive_gifted
+import greenprint.composeapp.generated.resources.plant_archive_sold
 import greenprint.composeapp.generated.resources.plant_delete
 import greenprint.composeapp.generated.resources.plant_water_action
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-
-/** The archive reasons the plant menu offers (inventory.md §5). */
-private const val ARCHIVE_DIED = "DIED"
-private const val ARCHIVE_GIFTED = "GIFTED"
 
 @Composable
 fun PlantItem(
@@ -100,12 +98,17 @@ private fun PlantActionsMenu(
         MenuAction(
             label = stringResource(Res.string.plant_archive_died),
             onDismiss = onDismiss,
-            onClick = { onArchiveClick(ARCHIVE_DIED) },
+            onClick = { onArchiveClick(ArchiveReason.DIED) },
         )
         MenuAction(
             label = stringResource(Res.string.plant_archive_gifted),
             onDismiss = onDismiss,
-            onClick = { onArchiveClick(ARCHIVE_GIFTED) },
+            onClick = { onArchiveClick(ArchiveReason.GIFTED) },
+        )
+        MenuAction(
+            label = stringResource(Res.string.plant_archive_sold),
+            onDismiss = onDismiss,
+            onClick = { onArchiveClick(ArchiveReason.SOLD) },
         )
         DeleteMenuItem(
             label = stringResource(Res.string.plant_delete),

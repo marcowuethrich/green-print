@@ -44,16 +44,23 @@ import ch.wuethrich.greenprint.ui.components.ErrorScreen
 import ch.wuethrich.greenprint.ui.components.GreenPrintScaffold
 import ch.wuethrich.greenprint.ui.components.LoadingScreen
 import ch.wuethrich.greenprint.ui.motion.StaggerFadeUp
+import ch.wuethrich.greenprint.ui.text
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.plant_add_action
+import greenprint.composeapp.generated.resources.plant_added
+import greenprint.composeapp.generated.resources.plant_archived
 import greenprint.composeapp.generated.resources.plant_blueprint_hint
 import greenprint.composeapp.generated.resources.plant_delete_dialog_message
 import greenprint.composeapp.generated.resources.plant_delete_dialog_title
+import greenprint.composeapp.generated.resources.plant_deleted
 import greenprint.composeapp.generated.resources.plant_no_plants
 import greenprint.composeapp.generated.resources.plant_position_saved_offline
+import greenprint.composeapp.generated.resources.plant_updated
 import greenprint.composeapp.generated.resources.plant_view_blueprint
 import greenprint.composeapp.generated.resources.plant_view_list
+import greenprint.composeapp.generated.resources.plant_watered
+import greenprint.composeapp.generated.resources.plant_watering_saved_offline
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -85,12 +92,7 @@ data class PlantScreen(val room: Room) : Screen {
 
         LaunchedEffect(viewModel.uiEffect) {
             viewModel.uiEffect.collect { effect ->
-                val message = when (effect) {
-                    is PlantUiEffect.SuccessEffect -> effect.message
-                    is PlantUiEffect.ValidationError -> effect.message
-                    PlantUiEffect.PositionSavedOffline -> getString(Res.string.plant_position_saved_offline)
-                }
-                snackbarHostState.showSnackbar(message)
+                snackbarHostState.showSnackbar(getString(effect.text))
             }
         }
         LaunchedEffect(room.id) {
@@ -135,6 +137,24 @@ data class PlantScreen(val room: Room) : Screen {
     }
 }
 
+/** The snackbar text for an effect (ADR-012). */
+private val PlantUiEffect.text: StringResource
+    get() = when (this) {
+        is PlantUiEffect.Saved -> change.text
+        is PlantUiEffect.Failed -> reason.text
+        PlantUiEffect.PositionSavedOffline -> Res.string.plant_position_saved_offline
+        PlantUiEffect.WateringSavedOffline -> Res.string.plant_watering_saved_offline
+    }
+
+private val PlantChange.text: StringResource
+    get() = when (this) {
+        PlantChange.ADDED -> Res.string.plant_added
+        PlantChange.UPDATED -> Res.string.plant_updated
+        PlantChange.WATERED -> Res.string.plant_watered
+        PlantChange.ARCHIVED -> Res.string.plant_archived
+        PlantChange.DELETED -> Res.string.plant_deleted
+    }
+
 /** How the room's plants are shown: as cards, or where they stand (spatial_blueprint.md). */
 private enum class PlantView { LIST, BLUEPRINT }
 
@@ -159,7 +179,7 @@ private fun PlantBody(
             when (uiState) {
                 PlantUiState.Loading -> LoadingScreen()
 
-                is PlantUiState.Error -> ErrorScreen(onRetry = onRetry, message = uiState.message)
+                is PlantUiState.Error -> ErrorScreen(onRetry = onRetry, message = stringResource(uiState.reason.text))
 
                 is PlantUiState.Success -> when (view) {
                     PlantView.LIST -> PlantList(plants = uiState.plants, onPlantAction = onPlantAction)

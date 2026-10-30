@@ -10,6 +10,7 @@ import ch.wuethrich.greenprint.model.CreatePlantRequest
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Plant
+import ch.wuethrich.greenprint.model.RecordWateringRequest
 import ch.wuethrich.greenprint.model.SyncStatus
 import ch.wuethrich.greenprint.model.UpdatePlantPositionRequest
 import ch.wuethrich.greenprint.model.UpdatePlantRequest
@@ -26,6 +27,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 interface PlantRepository {
     fun observePlants(roomId: String): Flow<NetworkResult<List<Plant>>>
@@ -39,6 +42,14 @@ interface PlantRepository {
      * of its room sends it again.
      */
     suspend fun updatePlantPosition(id: String, x: Float, y: Float): NetworkResult<Plant>
+
+    /**
+     * Waters a plant now. Write-through like a move: the watering is logged on the device
+     * ([SyncStatus.PENDING]) and the plant's `lastWateredDate` moves before the server is called. A
+     * failed call leaves the watering [SyncStatus.ERROR]; the next [observePlants] of its room sends it
+     * again, under the same id, so the server stores it once.
+     */
+    suspend fun waterPlant(id: String): NetworkResult<Plant>
     suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant>
     suspend fun deletePlant(id: String): NetworkResult<Unit>
 }
@@ -62,9 +73,10 @@ class PlantRepositoryImpl(
                 NetworkResult.Success(activePlants)
             }
 
-        // 2. Send local moves the server has not confirmed yet, then refresh from the network
+        // 2. Send local waterings and moves the server has not confirmed yet, then refresh from the network
         coroutineScope {
             launch {
+                syncPendingWaterings(roomId)
                 syncPendingPositions(roomId)
                 val result = httpClient.safeRequest<List<Plant>> {
                     url("$baseUrl/rooms/$roomId/plants")
@@ -74,9 +86,9 @@ class PlantRepositoryImpl(
                     queries.transaction {
                         // A row still waiting for the server keeps its local state (last write wins).
                         val unsyncedIds = queries
-                            .selectUnsyncedPlantsByRoomId(roomId)
+                            .selectLocallyChangedPlantIdsByRoomId(roomId)
                             .awaitAsList()
-                            .mapTo(mutableSetOf()) { it.id }
+                            .toSet()
                         queries.deleteSyncedPlantsByRoomId(roomId)
                         result.data.filterNot { it.id in unsyncedIds }.forEach { insertPlantIntoDb(it) }
                     }
@@ -126,6 +138,23 @@ class PlantRepositoryImpl(
         return pushPosition(id, x, y, movedAt)
     }
 
+    override suspend fun waterPlant(id: String): NetworkResult<Plant> {
+        val now = clock.now()
+        val wateringId = Uuid.random().toString()
+        val wateredAt = now.toString()
+        queries.transaction {
+            queries.insertWateringEvent(
+                id = wateringId,
+                plantId = id,
+                timestamp = wateredAt,
+                syncStatus = SyncStatus.PENDING,
+                updatedAt = now.toEpochMilliseconds(),
+            )
+            queries.updatePlantLastWatered(lastWateredDate = wateredAt, id = id)
+        }
+        return pushWatering(wateringId, id, wateredAt)
+    }
+
     override suspend fun archivePlant(id: String, request: ArchivePlantRequest): NetworkResult<Plant> {
         val result = httpClient.safeRequest<Plant> {
             url("$baseUrl/plants/$id/archive")
@@ -147,10 +176,51 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            queries.deletePlant(id)
+            forgetPlant(id)
         }
 
         return result
+    }
+
+    private suspend fun syncPendingWaterings(roomId: String) {
+        queries.selectUnsyncedWateringEventsByRoomId(roomId).awaitAsList().forEach { watering ->
+            val result = pushWatering(watering.id, watering.plantId, watering.timestamp)
+            // The plant is gone on the server: there is nothing left to water.
+            if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
+                forgetPlant(watering.plantId)
+            }
+        }
+    }
+
+    /** Sends one watering and settles it; the plant takes the server's date unless a newer one waits. */
+    private suspend fun pushWatering(wateringId: String, plantId: String, wateredAt: String): NetworkResult<Plant> {
+        val result = httpClient.safeRequest<Plant> {
+            url("$baseUrl/plants/$plantId/waterings")
+            method = HttpMethod.Post
+            setBody(RecordWateringRequest(id = wateringId, timestamp = wateredAt))
+        }
+        queries.transaction {
+            if (result is NetworkResult.Success) {
+                queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.SYNCED, id = wateringId)
+                queries.updatePlantLastWatered(lastWateredDate = lastWatered(result.data), id = plantId)
+            } else {
+                queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.ERROR, id = wateringId)
+            }
+        }
+        return result
+    }
+
+    /** The later of the server's last watering of [plant] and any watering still waiting on this device. */
+    private suspend fun lastWatered(plant: Plant): String? {
+        val pending = queries.selectUnsyncedWateringEventsByPlantId(plant.id).awaitAsList().map { it.timestamp }
+        return (pending + listOfNotNull(plant.lastWateredDate)).maxByOrNull { Instant.parse(it) }
+    }
+
+    private suspend fun forgetPlant(id: String) {
+        queries.transaction {
+            queries.deleteWateringEventsByPlantId(id)
+            queries.deletePlant(id)
+        }
     }
 
     private suspend fun syncPendingPositions(roomId: String) {
@@ -158,7 +228,7 @@ class PlantRepositoryImpl(
             val result = pushPosition(plant.id, plant.x.toFloat(), plant.y.toFloat(), plant.updatedAt)
             // The plant is gone on the server: there is nothing left to move.
             if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
-                queries.deletePlant(plant.id)
+                forgetPlant(plant.id)
             }
         }
     }
@@ -184,7 +254,7 @@ class PlantRepositoryImpl(
             potSize = plant.potSize,
             soilType = plant.soilType,
             wateringIntervalDays = plant.wateringIntervalDays.toLong(),
-            lastWateredDate = plant.lastWateredDate,
+            lastWateredDate = lastWatered(plant),
             photoUrl = plant.photoUrl,
             archiveDate = plant.archiveDate,
             archiveReason = plant.archiveReason,

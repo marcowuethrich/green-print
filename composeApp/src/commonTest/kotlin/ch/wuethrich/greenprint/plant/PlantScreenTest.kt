@@ -21,6 +21,10 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.v2.runComposeUiTest
+import ch.wuethrich.greenprint.model.ArchivePlantRequest
+import ch.wuethrich.greenprint.model.ArchiveReason
+import ch.wuethrich.greenprint.model.NetworkError
+import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Plant
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.SyncStatus
@@ -32,9 +36,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * UI tests for the spatial blueprint on [PlantScreen] (spatial_blueprint.md): the list/blueprint
- * switch, moving a marker by drag, by keyboard (ADR-013) and by accessibility action, and opening
- * a plant from its marker.
+ * UI tests for [PlantScreen]: Quick Water and the archive menu (inventory.md §5), and the spatial
+ * blueprint (spatial_blueprint.md): the list/blueprint switch, moving a marker by drag, by keyboard
+ * (ADR-013) and by accessibility action, and opening a plant from its marker.
  */
 @OptIn(ExperimentalTestApi::class)
 class PlantScreenTest : ScreenTest() {
@@ -50,6 +54,40 @@ class PlantScreenTest : ScreenTest() {
 
         onAllNodesWithContentDescription("Water Plant").assertCountEquals(2)
         onAllNodesWithContentDescription(FERN_MARKER).assertCountEquals(0)
+    }
+
+    @Test
+    fun wateringAPlantSavesItAndConfirms() = runComposeUiTest {
+        plantRepository.emitPlants(listOf(fern))
+        setScreenContent(PlantScreen(room))
+
+        onNodeWithContentDescription("Water Plant").performClick()
+        waitUntil { onAllNodesWithText("Plant watered").fetchSemanticsNodes().isNotEmpty() }
+
+        assertEquals(listOf(fern.id), plantRepository.waterings)
+    }
+
+    @Test
+    fun anOfflineWateringSaysItIsKeptOnTheDevice() = runComposeUiTest {
+        plantRepository.emitPlants(listOf(fern))
+        plantRepository.waterResult = NetworkResult.Failure(NetworkError.Connectivity)
+        setScreenContent(PlantScreen(room))
+
+        onNodeWithContentDescription("Water Plant").performClick()
+
+        waitUntil { onAllNodesWithText("Saved on this device", substring = true).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun theMenuArchivesAPlantAsSold() = runComposeUiTest {
+        plantRepository.emitPlants(listOf(fern))
+        setScreenContent(PlantScreen(room))
+
+        onNodeWithContentDescription("More options").performClick()
+        onNodeWithText("Archive (Sold)").performClick()
+        waitUntil { plantRepository.archives.isNotEmpty() }
+
+        assertEquals(fern.id to ArchivePlantRequest(ArchiveReason.SOLD), plantRepository.archives.single())
     }
 
     @Test

@@ -96,10 +96,11 @@ class PlantResource {
             }
 
             // The same id for another plant is not a resend but a clash.
-            existing.plant.id != plant.id -> return@withTx Response
-                .status(Response.Status.CONFLICT)
-                .entity(ApiError(code = "watering_id_taken", field = "id"))
-                .build()
+            existing.plant.id != plant.id ->
+                return@withTx Response
+                    .status(Response.Status.CONFLICT)
+                    .entity(ApiError(code = "watering_id_taken", field = "id"))
+                    .build()
         }
 
         Response.ok(plant.toDto()).build()

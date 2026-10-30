@@ -56,16 +56,16 @@ fun validateWateringId(raw: String, field: String = "id"): UUID = try {
 }
 
 /**
- * A watering's time is an ISO-8601 instant that is not in the future; [clockSkew] allows for a
+ * A watering's time is an ISO-8601 instant that is not in the future; [MAX_CLOCK_SKEW] allows for a
  * device clock that runs a little ahead.
  */
-fun validateWateredAt(raw: String, now: Instant, field: String = "timestamp", clockSkew: Duration = MAX_CLOCK_SKEW): Instant {
+fun validateWateredAt(raw: String, now: Instant, field: String = "timestamp"): Instant {
     val wateredAt = try {
         Instant.parse(raw)
     } catch (_: DateTimeParseException) {
         throw ValidationException(ApiError(code = "timestamp_invalid", field = field))
     }
-    if (wateredAt.isAfter(now.plus(clockSkew))) {
+    if (wateredAt.isAfter(now.plus(MAX_CLOCK_SKEW))) {
         throw ValidationException(ApiError(code = "timestamp_invalid", field = field))
     }
     return wateredAt
