@@ -3,6 +3,9 @@ package ch.wuethrich.greenprint.resource
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.SpaceEntity
 import ch.wuethrich.greenprint.entity.UserEntity
+import ch.wuethrich.greenprint.model.ArchivePlantRequest
+import ch.wuethrich.greenprint.model.ArchiveReason
+import ch.wuethrich.greenprint.model.CreatePlantRequest
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
@@ -50,6 +53,42 @@ class RoomResourceTest {
         given()
             .`when`().delete("/rooms/$roomId")
             .then().statusCode(204)
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `deleting a room with plants returns 409 and keeps them`() {
+        val spaceId = createSpace("My Apartment")
+        val roomId = createRoom(spaceId, "Kitchen")
+        createPlant(roomId, "Basil")
+
+        given()
+            .`when`().delete("/rooms/$roomId")
+            .then().statusCode(409)
+            .body("code", equalTo("room_not_empty"))
+
+        given()
+            .`when`().get("/rooms/$roomId/plants")
+            .then().statusCode(200)
+            .body("size()", equalTo(1))
+    }
+
+    @Test
+    @TestSecurity(user = "alice", roles = ["user"])
+    fun `deleting a room with only archived plants returns 409`() {
+        val spaceId = createSpace("My Apartment")
+        val roomId = createRoom(spaceId, "Kitchen")
+        val plantId = createPlant(roomId, "Basil")
+        given()
+            .contentType(ContentType.JSON)
+            .body(ArchivePlantRequest(reason = ArchiveReason.GIFTED))
+            .`when`().post("/plants/$plantId/archive")
+            .then().statusCode(200)
+
+        given()
+            .`when`().delete("/rooms/$roomId")
+            .then().statusCode(409)
+            .body("code", equalTo("room_not_empty"))
     }
 
     @Test
@@ -234,6 +273,13 @@ class RoomResourceTest {
         .body("""{"name": "$name"}""")
         .`when`().post("/spaces")
         .then().statusCode(200)
+        .extract().path("id")
+
+    private fun createPlant(roomId: String, name: String): String = given()
+        .contentType(ContentType.JSON)
+        .body(CreatePlantRequest(name = name, wateringIntervalDays = 3))
+        .`when`().post("/rooms/$roomId/plants")
+        .then().statusCode(201)
         .extract().path("id")
 
     private fun createRoom(spaceId: String, name: String, icon: String? = null): String {

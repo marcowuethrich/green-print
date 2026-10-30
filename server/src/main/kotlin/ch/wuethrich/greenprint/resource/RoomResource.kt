@@ -1,8 +1,10 @@
 package ch.wuethrich.greenprint.resource
 
 import ch.wuethrich.greenprint.auth.UserService
+import ch.wuethrich.greenprint.entity.PlantEntity
 import ch.wuethrich.greenprint.entity.RoomEntity
 import ch.wuethrich.greenprint.entity.toDto
+import ch.wuethrich.greenprint.model.ApiError
 import ch.wuethrich.greenprint.model.UpdateRoomRequest
 import io.quarkus.security.Authenticated
 import io.smallrye.mutiny.coroutines.awaitSuspending
@@ -39,6 +41,10 @@ class RoomResource {
         Response.ok(room.toDto()).build()
     }
 
+    /**
+     * Deletes an empty room. A room that still holds plants, archived ones included (they are its
+     * history, ADR-009), answers 409 `room_not_empty`, as the app refuses it (inventory.md §4).
+     */
     @DELETE
     @Path("/{id}")
     suspend fun deleteRoom(@PathParam("id") id: UUID): Response = withTx {
@@ -46,6 +52,12 @@ class RoomResource {
         val room = RoomEntity.find("id = ?1 and space.user = ?2", id, user)
             .firstResult().awaitSuspending()
             ?: return@withTx Response.status(Response.Status.NOT_FOUND).build()
+        if (PlantEntity.count("room", room).awaitSuspending() > 0) {
+            return@withTx Response
+                .status(Response.Status.CONFLICT)
+                .entity(ApiError(code = "room_not_empty"))
+                .build()
+        }
         room.deleteDirectly(room.id)
         Response.noContent().build()
     }
