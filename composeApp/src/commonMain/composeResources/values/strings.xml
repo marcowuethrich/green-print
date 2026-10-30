@@ -61,7 +61,7 @@
     <string name="room_delete_dialog_title">Delete room?</string>
     <string name="room_delete_dialog_message">Are you sure you want to delete '%1$s'?</string>
     <string name="room_not_empty_title">Room Not Empty</string>
-    <string name="room_not_empty_message">The room '%1$s' still has plants. Move or archive them before you delete the room. Archived plants stay with their room as its history, so a room that has them is kept too.</string>
+    <string name="room_not_empty_message">The room '%1$s' still has plants. Archived plants count too: they stay with their room as its history. Delete the room's plants first if you really want to remove it.</string>
     <string name="room_name_taken">A room with this name already exists in this space.</string>
 
     <!-- Plant management -->
