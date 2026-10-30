@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
+import ch.wuethrich.greenprint.model.ErrorReason
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Space
+import ch.wuethrich.greenprint.model.toErrorReason
 import ch.wuethrich.greenprint.repository.RoomRepository
 import ch.wuethrich.greenprint.repository.SpaceRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,11 +24,11 @@ sealed interface SpaceUiState {
     data object Loading : SpaceUiState
     data object Empty : SpaceUiState
     data class HasSpace(val space: Space) : SpaceUiState
-    data class Error(val message: String) : SpaceUiState
+    data class Error(val reason: ErrorReason) : SpaceUiState
 }
 
 sealed interface SpaceUiEffect {
-    data class ValidationError(val message: String, val targetId: String? = null) : SpaceUiEffect
+    data class ValidationError(val reason: ErrorReason, val targetId: String? = null) : SpaceUiEffect
     data class RoomHasPlants(val roomId: String, val roomName: String) : SpaceUiEffect
 }
 
@@ -67,7 +69,7 @@ class SpaceViewModel(
 
                 is NetworkResult.Failure -> handleFormError(
                     result.error,
-                    "A space with this name already exists.",
+                    ErrorReason.SPACE_NAME_TAKEN,
                     targetId = null,
                 )
             }
@@ -83,7 +85,7 @@ class SpaceViewModel(
 
                 is NetworkResult.Failure -> handleFormError(
                     result.error,
-                    "A space with this name already exists.",
+                    ErrorReason.SPACE_NAME_TAKEN,
                     targetId = id,
                 )
             }
@@ -95,7 +97,7 @@ class SpaceViewModel(
             _uiState.value = SpaceUiState.Loading
             when (val result = spaceRepository.deleteSpace(id)) {
                 is NetworkResult.Success -> _uiState.value = SpaceUiState.Empty
-                is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toMessage())
+                is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toErrorReason())
             }
         }
     }
@@ -111,7 +113,7 @@ class SpaceViewModel(
 
                 is NetworkResult.Failure -> handleFormError(
                     result.error,
-                    "A room with this name already exists in this space.",
+                    ErrorReason.ROOM_NAME_TAKEN,
                     targetId = "new_room",
                 )
             }
@@ -127,7 +129,7 @@ class SpaceViewModel(
 
                 is NetworkResult.Failure -> handleFormError(
                     result.error,
-                    "A room with this name already exists in this space.",
+                    ErrorReason.ROOM_NAME_TAKEN,
                     targetId = id,
                 )
             }
@@ -136,33 +138,30 @@ class SpaceViewModel(
 
     fun deleteRoom(id: String, force: Boolean = false) {
         viewModelScope.launch {
-            if (!force) {
-                val hasPlants = queries.selectPlantsByRoomId(id).awaitAsList().isNotEmpty()
-                if (hasPlants) {
-                    val room = queries.selectAllRooms().awaitAsList().find { it.id == id }
-                    _uiEffect.emit(SpaceUiEffect.RoomHasPlants(id, room?.name ?: ""))
-                    return@launch
-                }
+            if (!force && queries.selectPlantsByRoomId(id).awaitAsList().isNotEmpty()) {
+                reportRoomHasPlants(id)
+                return@launch
             }
 
             when (val result = roomRepository.deleteRoom(id)) {
                 is NetworkResult.Success -> refreshSignal.value++
-                is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toMessage())
+
+                // The server also counts plants this device has not cached, archived ones among them.
+                is NetworkResult.Failure if result.error == NetworkError.Conflict -> reportRoomHasPlants(id)
+
+                is NetworkResult.Failure -> _uiState.value = SpaceUiState.Error(result.error.toErrorReason())
             }
         }
     }
 
-    private suspend fun handleFormError(error: NetworkError, conflictMessage: String, targetId: String?) {
-        when (error) {
-            is NetworkError.Conflict ->
-                _uiEffect.emit(SpaceUiEffect.ValidationError(conflictMessage, targetId))
+    private suspend fun reportRoomHasPlants(id: String) {
+        val room = queries.selectAllRooms().awaitAsList().find { it.id == id }
+        _uiEffect.emit(SpaceUiEffect.RoomHasPlants(id, room?.name.orEmpty()))
+    }
 
-            is NetworkError.Validation ->
-                _uiEffect.emit(SpaceUiEffect.ValidationError(error.toMessage(), error.field ?: targetId))
-
-            else ->
-                _uiEffect.emit(SpaceUiEffect.ValidationError(error.toMessage(), targetId))
-        }
+    private suspend fun handleFormError(error: NetworkError, conflict: ErrorReason, targetId: String?) {
+        val target = (error as? NetworkError.Validation)?.field ?: targetId
+        _uiEffect.emit(SpaceUiEffect.ValidationError(error.toErrorReason(conflict), target))
     }
 
     private suspend fun loadSpaceInternal() {
@@ -178,27 +177,10 @@ class SpaceViewModel(
                 is NetworkResult.Failure -> {
                     // Always show error if we don't have a space successfully loaded.
                     if (_uiState.value !is SpaceUiState.HasSpace) {
-                        _uiState.value = SpaceUiState.Error(result.error.toMessage())
+                        _uiState.value = SpaceUiState.Error(result.error.toErrorReason())
                     }
                 }
             }
         }
     }
-}
-
-private fun NetworkError.toMessage(): String = when (this) {
-    NetworkError.Unauthorized -> "Please log in again."
-    NetworkError.Forbidden -> "You don't have permission to perform this action."
-    NetworkError.NotFound -> "The requested resource was not found."
-    NetworkError.Conflict -> "This item already exists."
-    NetworkError.ServerError -> "Server error: Please try again later."
-    NetworkError.Connectivity -> "Network error: Please check your connection."
-    is NetworkError.Validation -> validationMessage(code)
-    is NetworkError.Unknown -> message ?: "An unexpected error occurred."
-}
-
-private fun validationMessage(code: String): String = when (code) {
-    "name_blank" -> "Name cannot be empty."
-    "name_too_long" -> "Name is too long (maximum 128 characters)."
-    else -> "Please check the entered values."
 }

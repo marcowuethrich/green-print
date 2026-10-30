@@ -7,6 +7,7 @@ import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlPreparedStatement
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
+import ch.wuethrich.greenprint.model.ErrorReason
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
 import ch.wuethrich.greenprint.model.Room
@@ -18,7 +19,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -135,6 +139,46 @@ class SpaceViewModelTest {
     }
 
     @Test
+    fun `a room the server refuses to delete opens the room-not-empty dialog`() = runTest {
+        val space = Space(id = "5", name = "Flat")
+        val viewModel = SpaceViewModel(
+            spaceRepository = FakeSpaceRepository(spaces = listOf(space)),
+            roomRepository = FakeRoomRepository(deleteResult = NetworkResult.Failure(NetworkError.Conflict)),
+            queries = fakeQueries,
+        )
+        val effects = mutableListOf<SpaceUiEffect>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiEffect.toList(effects) }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.deleteRoom("room-1")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf<SpaceUiEffect>(SpaceUiEffect.RoomHasPlants("room-1", "")), effects)
+        assertIs<SpaceUiState.HasSpace>(viewModel.uiState.value)
+    }
+
+    @Test
+    fun `a taken room name is reported as a typed reason on the form`() = runTest {
+        val space = Space(id = "6", name = "Flat")
+        val viewModel = SpaceViewModel(
+            spaceRepository = FakeSpaceRepository(spaces = listOf(space)),
+            roomRepository = FakeRoomRepository(createResult = NetworkResult.Failure(NetworkError.Conflict)),
+            queries = fakeQueries,
+        )
+        val effects = mutableListOf<SpaceUiEffect>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiEffect.toList(effects) }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.createRoom(space.id, "Kitchen")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(
+            listOf<SpaceUiEffect>(SpaceUiEffect.ValidationError(ErrorReason.ROOM_NAME_TAKEN, "new_room")),
+            effects,
+        )
+    }
+
+    @Test
     fun `retry reloads space after error`() = runTest {
         var shouldFail = true
         val space = Space(id = "4", name = "Loft")
@@ -224,12 +268,15 @@ private open class FakeSpaceRepository(
     override suspend fun deleteSpace(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
 }
 
-private class FakeRoomRepository : RoomRepository {
+private class FakeRoomRepository(
+    private val createResult: NetworkResult<Room>? = null,
+    private val deleteResult: NetworkResult<Unit> = NetworkResult.Success(Unit),
+) : RoomRepository {
     override suspend fun createRoom(spaceId: String, name: String, icon: String?): NetworkResult<Room> =
-        NetworkResult.Success(Room(id = "new_room", spaceId = spaceId, name = name, icon = icon))
+        createResult ?: NetworkResult.Success(Room(id = "new_room", spaceId = spaceId, name = name, icon = icon))
 
     override suspend fun updateRoom(id: String, name: String, icon: String?): NetworkResult<Room> =
         NetworkResult.Success(Room(id = id, spaceId = "unknown", name = name, icon = icon))
 
-    override suspend fun deleteRoom(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
+    override suspend fun deleteRoom(id: String): NetworkResult<Unit> = deleteResult
 }

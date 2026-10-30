@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import ch.wuethrich.greenprint.model.ErrorReason
 import ch.wuethrich.greenprint.model.Room
 import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.plant.PlantScreen
@@ -37,6 +38,7 @@ import ch.wuethrich.greenprint.ui.components.ErrorScreen
 import ch.wuethrich.greenprint.ui.components.GreenPrintScaffold
 import ch.wuethrich.greenprint.ui.components.LoadingScreen
 import ch.wuethrich.greenprint.ui.motion.PageEntrance
+import ch.wuethrich.greenprint.ui.text
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.room_add_action
@@ -58,7 +60,7 @@ sealed interface SpaceModal {
 private class SpaceModalState {
     var active: SpaceModal by mutableStateOf(SpaceModal.None)
         private set
-    var validationError: String? by mutableStateOf(null)
+    var validationError: ErrorReason? by mutableStateOf(null)
     private var isSaving by mutableStateOf(false)
 
     fun open(modal: SpaceModal) {
@@ -73,13 +75,13 @@ private class SpaceModalState {
         isSaving = true
     }
 
-    fun rejected(message: String) {
-        validationError = message
+    fun rejected(reason: ErrorReason) {
+        validationError = reason
         isSaving = false
     }
 
     fun onEffect(effect: SpaceUiEffect) = when (effect) {
-        is SpaceUiEffect.ValidationError -> rejected(effect.message)
+        is SpaceUiEffect.ValidationError -> rejected(effect.reason)
         is SpaceUiEffect.RoomHasPlants -> open(SpaceModal.RoomNotEmpty(effect.roomId, effect.roomName))
     }
 
@@ -180,7 +182,10 @@ private fun SpaceBody(
                         onCreateRoomClick = { onModalRequest(SpaceModal.CreateRoom) },
                     )
 
-                    is SpaceUiState.Error -> ErrorScreen(onRetry = onRetry, message = uiState.message)
+                    is SpaceUiState.Error -> ErrorScreen(
+                        onRetry = onRetry,
+                        message = stringResource(uiState.reason.text),
+                    )
                 }
             }
         }
@@ -199,7 +204,7 @@ private fun SpaceModalHost(
     onDeleteConfirm: (modal: SpaceModal) -> Unit,
 ) {
     val modal = modals.active
-    val error = modals.validationError
+    val error = modals.validationError?.let { stringResource(it.text) }
     val submit = { name: String, icon: String? ->
         modals.submitting()
         onSubmit(modal, name, icon)

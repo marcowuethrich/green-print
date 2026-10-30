@@ -71,7 +71,7 @@ class SpaceScreenTest : ScreenTest() {
         spaceRepository.emitError(NetworkError.Connectivity)
         setScreenContent(SpaceScreen())
 
-        onNodeWithText("Network error", substring = true).assertIsDisplayed()
+        onNodeWithText("Couldn't reach the server", substring = true).assertIsDisplayed()
         onNodeWithText("Retry").assertIsDisplayed()
     }
 

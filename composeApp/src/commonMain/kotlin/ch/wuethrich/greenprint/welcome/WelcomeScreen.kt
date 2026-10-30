@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import ch.wuethrich.greenprint.model.ErrorReason
 import ch.wuethrich.greenprint.model.Space
 import ch.wuethrich.greenprint.space.SpaceScreen
 import ch.wuethrich.greenprint.space.SpaceUiEffect
@@ -53,6 +54,7 @@ import ch.wuethrich.greenprint.ui.components.GreenPrintScaffold
 import ch.wuethrich.greenprint.ui.components.LoadingScreen
 import ch.wuethrich.greenprint.ui.motion.PageEntrance
 import ch.wuethrich.greenprint.ui.motion.softPress
+import ch.wuethrich.greenprint.ui.text
 import ch.wuethrich.greenprint.ui.theme.DesignSystem
 import greenprint.composeapp.generated.resources.Res
 import greenprint.composeapp.generated.resources.app_name
@@ -71,12 +73,12 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
-/** The create-space dialog: open or not, saving or not, and the server's validation message. */
+/** The create-space dialog: open or not, saving or not, and why the server rejected it. */
 @Stable
 private class CreateSpaceState {
     var isOpen by mutableStateOf(false)
         private set
-    var validationError: String? by mutableStateOf(null)
+    var validationError: ErrorReason? by mutableStateOf(null)
     private var isCreating by mutableStateOf(false)
 
     fun open() {
@@ -95,8 +97,8 @@ private class CreateSpaceState {
         isCreating = true
     }
 
-    fun rejected(message: String) {
-        validationError = message
+    fun rejected(reason: ErrorReason) {
+        validationError = reason
         isCreating = false
         isOpen = true
     }
@@ -121,7 +123,7 @@ class WelcomeScreen : Screen {
 
         LaunchedEffect(viewModel.uiEffect) {
             viewModel.uiEffect.collect { effect ->
-                if (effect is SpaceUiEffect.ValidationError) createSpace.rejected(effect.message)
+                if (effect is SpaceUiEffect.ValidationError) createSpace.rejected(effect.reason)
             }
         }
         // Focus the screen's one action once it shows and no dialog covers it (ADR-013).
@@ -155,7 +157,7 @@ class WelcomeScreen : Screen {
 
         if (createSpace.isOpen) {
             CreateSpaceModal(
-                error = createSpace.validationError,
+                error = createSpace.validationError?.let { stringResource(it.text) },
                 onConfirm = { name, icon ->
                     createSpace.submitting()
                     viewModel.createSpace(name, icon)
@@ -194,7 +196,7 @@ private fun WelcomeBody(
                 focusRequester = focusRequester,
             )
 
-            is SpaceUiState.Error -> ErrorScreen(onRetry = onRetry, message = uiState.message)
+            is SpaceUiState.Error -> ErrorScreen(onRetry = onRetry, message = stringResource(uiState.reason.text))
         }
     }
 }

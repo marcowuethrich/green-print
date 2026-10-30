@@ -19,6 +19,17 @@
 
     <!-- Common errors -->
     <string name="error_generic">Something went wrong.</string>
+    <string name="error_session_expired">Please log in again.</string>
+    <string name="error_forbidden">You don't have permission to do that.</string>
+    <string name="error_not_found">This is gone. It may have been deleted.</string>
+    <string name="error_already_exists">This already exists.</string>
+    <string name="error_server">The server had a problem. Please try again later.</string>
+    <string name="error_network">Couldn't reach the server. Check your connection.</string>
+    <string name="error_name_blank">The name can't be empty.</string>
+    <string name="error_name_too_long">The name is too long (128 characters at most).</string>
+    <string name="error_interval_out_of_range">Water every 1 to 365 days.</string>
+    <string name="error_position_out_of_range">That spot is outside the room.</string>
+    <string name="error_invalid_input">Please check the values you entered.</string>
 
     <!-- Space screen -->
     <string name="space_leave_action">Leave Space</string>
@@ -32,6 +43,7 @@
     <string name="space_no_rooms_description">Divide your space into rooms to organize your plants.</string>
     <string name="space_add_first_room">Add Your First Room</string>
     <string name="space_rooms_section_title">Rooms</string>
+    <string name="space_name_taken">A space with this name already exists.</string>
 
     <!-- Space — rename dialog -->
     <string name="space_rename_dialog_title">Rename space</string>
@@ -49,7 +61,8 @@
     <string name="room_delete_dialog_title">Delete room?</string>
     <string name="room_delete_dialog_message">Are you sure you want to delete '%1$s'?</string>
     <string name="room_not_empty_title">Room Not Empty</string>
-    <string name="room_not_empty_message">The room '%1$s' contains plants. Please move or archive them before deleting the room.</string>
+    <string name="room_not_empty_message">The room '%1$s' still has plants. Move or archive them before you delete the room. Archived plants stay with their room as its history, so a room that has them is kept too.</string>
+    <string name="room_name_taken">A room with this name already exists in this space.</string>
 
     <!-- Plant management -->
     <string name="plant_add_action">Add Plant</string>
@@ -61,10 +74,18 @@
     <string name="plant_interval_label">Watering Interval (Days)</string>
     <string name="plant_archive_died">Archive (Died)</string>
     <string name="plant_archive_gifted">Archive (Gifted)</string>
+    <string name="plant_archive_sold">Archive (Sold)</string>
     <string name="plant_delete">Delete</string>
     <string name="plant_delete_dialog_title">Delete plant?</string>
     <string name="plant_delete_dialog_message">Are you sure you want to permanently delete '%1$s'?</string>
     <string name="plant_no_plants">No plants in this room yet.</string>
+    <string name="plant_name_taken">A plant with this name already exists in this room.</string>
+    <string name="plant_added">Plant added</string>
+    <string name="plant_updated">Plant updated</string>
+    <string name="plant_watered">Plant watered</string>
+    <string name="plant_archived">Plant archived</string>
+    <string name="plant_deleted">Plant deleted</string>
+    <string name="plant_watering_saved_offline">Watered. Saved on this device; it syncs when you are back online.</string>
 
     <!-- Plant — spatial blueprint -->
     <string name="plant_view_list">List</string>
