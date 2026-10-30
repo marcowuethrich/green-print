@@ -76,8 +76,7 @@ class PlantRepositoryImpl(
         // 2. Send local waterings and moves the server has not confirmed yet, then refresh from the network
         coroutineScope {
             launch {
-                syncPendingWaterings(roomId)
-                syncPendingPositions(roomId)
+                syncPendingChanges(roomId)
                 val result = httpClient.safeRequest<List<Plant>> {
                     url("$baseUrl/rooms/$roomId/plants")
                     method = HttpMethod.Get
@@ -90,7 +89,7 @@ class PlantRepositoryImpl(
                             .awaitAsList()
                             .toSet()
                         queries.deleteSyncedPlantsByRoomId(roomId)
-                        result.data.filterNot { it.id in unsyncedIds }.forEach { insertPlantIntoDb(it) }
+                        result.data.filterNot { it.id in unsyncedIds }.forEach { queries.cachePlant(it) }
                     }
                 }
             }
@@ -106,7 +105,7 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            insertPlantIntoDb(result.data)
+            queries.cachePlant(result.data)
         }
 
         return result
@@ -120,7 +119,7 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            insertPlantIntoDb(result.data)
+            queries.cachePlant(result.data)
         }
 
         return result
@@ -163,7 +162,7 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            insertPlantIntoDb(result.data)
+            queries.cachePlant(result.data)
         }
 
         return result
@@ -176,18 +175,26 @@ class PlantRepositoryImpl(
         }
 
         if (result is NetworkResult.Success) {
-            forgetPlant(id)
+            queries.forgetPlant(id)
         }
 
         return result
     }
 
-    private suspend fun syncPendingWaterings(roomId: String) {
+    /** Sends what this device changed in the room and the server has not confirmed: waterings, then moves. */
+    private suspend fun syncPendingChanges(roomId: String) {
         queries.selectUnsyncedWateringEventsByRoomId(roomId).awaitAsList().forEach { watering ->
             val result = pushWatering(watering.id, watering.plantId, watering.timestamp)
             // The plant is gone on the server: there is nothing left to water.
             if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
-                forgetPlant(watering.plantId)
+                queries.forgetPlant(watering.plantId)
+            }
+        }
+        queries.selectUnsyncedPlantsByRoomId(roomId).awaitAsList().forEach { plant ->
+            val result = pushPosition(plant.id, plant.x.toFloat(), plant.y.toFloat(), plant.updatedAt)
+            // The plant is gone on the server: there is nothing left to move.
+            if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
+                queries.forgetPlant(plant.id)
             }
         }
     }
@@ -202,35 +209,12 @@ class PlantRepositoryImpl(
         queries.transaction {
             if (result is NetworkResult.Success) {
                 queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.SYNCED, id = wateringId)
-                queries.updatePlantLastWatered(lastWateredDate = lastWatered(result.data), id = plantId)
+                queries.updatePlantLastWatered(lastWateredDate = queries.lastWatered(result.data), id = plantId)
             } else {
                 queries.updateWateringEventSyncStatus(syncStatus = SyncStatus.ERROR, id = wateringId)
             }
         }
         return result
-    }
-
-    /** The later of the server's last watering of [plant] and any watering still waiting on this device. */
-    private suspend fun lastWatered(plant: Plant): String? {
-        val pending = queries.selectUnsyncedWateringEventsByPlantId(plant.id).awaitAsList().map { it.timestamp }
-        return (pending + listOfNotNull(plant.lastWateredDate)).maxByOrNull { Instant.parse(it) }
-    }
-
-    private suspend fun forgetPlant(id: String) {
-        queries.transaction {
-            queries.deleteWateringEventsByPlantId(id)
-            queries.deletePlant(id)
-        }
-    }
-
-    private suspend fun syncPendingPositions(roomId: String) {
-        queries.selectUnsyncedPlantsByRoomId(roomId).awaitAsList().forEach { plant ->
-            val result = pushPosition(plant.id, plant.x.toFloat(), plant.y.toFloat(), plant.updatedAt)
-            // The plant is gone on the server: there is nothing left to move.
-            if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
-                forgetPlant(plant.id)
-            }
-        }
     }
 
     /** Sends the move stamped [movedAt] and settles its row, unless a newer move replaced it meanwhile. */
@@ -244,42 +228,56 @@ class PlantRepositoryImpl(
         queries.updatePlantSyncStatusIfUnchanged(syncStatus = status, id = id, updatedAt = movedAt)
         return result
     }
+}
 
-    private suspend fun insertPlantIntoDb(plant: Plant) {
-        queries.insertPlant(
-            id = plant.id,
-            roomId = plant.roomId,
-            name = plant.name,
-            species = plant.species,
-            potSize = plant.potSize,
-            soilType = plant.soilType,
-            wateringIntervalDays = plant.wateringIntervalDays.toLong(),
-            lastWateredDate = lastWatered(plant),
-            photoUrl = plant.photoUrl,
-            archiveDate = plant.archiveDate,
-            archiveReason = plant.archiveReason,
-            x = plant.x.toDouble(),
-            y = plant.y.toDouble(),
-            syncStatus = plant.syncStatus,
-            updatedAt = plant.updatedAt,
-        )
-    }
-
-    private fun PlantEntity.toDomain(): Plant = Plant(
-        id = id,
-        roomId = roomId,
-        name = name,
-        species = species,
-        potSize = potSize,
-        soilType = soilType,
-        wateringIntervalDays = wateringIntervalDays.toInt(),
-        lastWateredDate = lastWateredDate,
-        photoUrl = photoUrl,
-        archiveDate = archiveDate,
-        archiveReason = archiveReason,
-        x = x.toFloat(),
-        y = y.toFloat(),
-        syncStatus = syncStatus,
-        updatedAt = updatedAt,
+private suspend fun GreenPrintDbQueries.cachePlant(plant: Plant) {
+    insertPlant(
+        id = plant.id,
+        roomId = plant.roomId,
+        name = plant.name,
+        species = plant.species,
+        potSize = plant.potSize,
+        soilType = plant.soilType,
+        wateringIntervalDays = plant.wateringIntervalDays.toLong(),
+        lastWateredDate = lastWatered(plant),
+        photoUrl = plant.photoUrl,
+        archiveDate = plant.archiveDate,
+        archiveReason = plant.archiveReason,
+        x = plant.x.toDouble(),
+        y = plant.y.toDouble(),
+        syncStatus = plant.syncStatus,
+        updatedAt = plant.updatedAt,
     )
 }
+
+/** The later of the server's last watering of [plant] and any watering still waiting on this device. */
+private suspend fun GreenPrintDbQueries.lastWatered(plant: Plant): String? {
+    val pending = selectUnsyncedWateringEventsByPlantId(plant.id).awaitAsList().map { it.timestamp }
+    return (pending + listOfNotNull(plant.lastWateredDate)).maxByOrNull { Instant.parse(it) }
+}
+
+/** Drops a plant and its waterings from the cache. */
+private suspend fun GreenPrintDbQueries.forgetPlant(id: String) {
+    transaction {
+        deleteWateringEventsByPlantId(id)
+        deletePlant(id)
+    }
+}
+
+private fun PlantEntity.toDomain(): Plant = Plant(
+    id = id,
+    roomId = roomId,
+    name = name,
+    species = species,
+    potSize = potSize,
+    soilType = soilType,
+    wateringIntervalDays = wateringIntervalDays.toInt(),
+    lastWateredDate = lastWateredDate,
+    photoUrl = photoUrl,
+    archiveDate = archiveDate,
+    archiveReason = archiveReason,
+    x = x.toFloat(),
+    y = y.toFloat(),
+    syncStatus = syncStatus,
+    updatedAt = updatedAt,
+)

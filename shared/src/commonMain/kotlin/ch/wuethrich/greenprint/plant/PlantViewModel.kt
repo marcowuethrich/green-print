@@ -75,7 +75,7 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
 
     /** Adds a plant; it lands on the blueprint spot farthest from the plants already there. */
     fun createPlant(roomId: String, name: String, species: String?, intervalDays: Int) {
-        val occupied = currentPlants().map { BlueprintPosition(it.x, it.y) }
+        val occupied = currentPlants.map { BlueprintPosition(it.x, it.y) }
         val position = BlueprintLayout.nextFreePosition(occupied)
         viewModelScope.launch {
             val request = CreatePlantRequest(
@@ -182,7 +182,8 @@ class PlantViewModel(private val plantRepository: PlantRepository) : ViewModel()
         }
     }
 
-    private fun currentPlants(): List<Plant> = (_uiState.value as? PlantUiState.Success)?.plants.orEmpty()
+    private val currentPlants: List<Plant>
+        get() = (_uiState.value as? PlantUiState.Success)?.plants.orEmpty()
 }
 
 // A plant's name is unique in its room, so a 409 on a plant names that.

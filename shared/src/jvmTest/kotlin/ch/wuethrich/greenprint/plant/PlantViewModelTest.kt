@@ -307,43 +307,47 @@ private class FakePlantServer(private val dispatcher: CoroutineDispatcher) {
         val path = request.url.encodedPath
         return when {
             request.method == HttpMethod.Get && path.endsWith("/plants") -> respondJson(plants.values.toList())
-
-            request.method == HttpMethod.Put && path.endsWith("/position") -> {
-                val id = path.removePrefix("/plants/").removeSuffix("/position")
-                val move = json.decodeFromString<UpdatePlantPositionRequest>(request.bodyText())
-                positionUpdates += move
-                val moved = plants[id]?.copy(x = move.x, y = move.y) ?: return respondError(HttpStatusCode.NotFound)
-                plants[id] = moved
-                respondJson(moved)
-            }
-
-            request.method == HttpMethod.Post && path.endsWith("/waterings") -> {
-                val id = path.removePrefix("/plants/").removeSuffix("/waterings")
-                val watering = json.decodeFromString<RecordWateringRequest>(request.bodyText())
-                if (waterings.none { it.id == watering.id }) waterings += watering
-                val watered = plants[id]?.copy(lastWateredDate = watering.timestamp)
-                    ?: return respondError(HttpStatusCode.NotFound)
-                plants[id] = watered
-                respondJson(watered)
-            }
-
-            request.method == HttpMethod.Post && path.endsWith("/plants") -> {
-                val create = json.decodeFromString<CreatePlantRequest>(request.bodyText())
-                created += create
-                val plant = Plant(
-                    id = "plant-${plants.size + 1}",
-                    roomId = path.removePrefix("/rooms/").removeSuffix("/plants"),
-                    name = create.name,
-                    wateringIntervalDays = create.wateringIntervalDays,
-                    x = create.x,
-                    y = create.y,
-                )
-                plants[plant.id] = plant
-                respondJson(plant, HttpStatusCode.Created)
-            }
-
+            request.method == HttpMethod.Put && path.endsWith("/position") -> move(path, request)
+            request.method == HttpMethod.Post && path.endsWith("/waterings") -> water(path, request)
+            request.method == HttpMethod.Post && path.endsWith("/plants") -> create(path, request)
             else -> respondError(HttpStatusCode.NotFound)
         }
+    }
+
+    private fun MockRequestHandleScope.move(path: String, request: HttpRequestData): HttpResponseData {
+        val id = path.removePrefix("/plants/").removeSuffix("/position")
+        val move = json.decodeFromString<UpdatePlantPositionRequest>(request.bodyText())
+        positionUpdates += move
+        return update(id) { it.copy(x = move.x, y = move.y) }
+    }
+
+    // Like the server, a resent watering (same id) is recorded once.
+    private fun MockRequestHandleScope.water(path: String, request: HttpRequestData): HttpResponseData {
+        val id = path.removePrefix("/plants/").removeSuffix("/waterings")
+        val watering = json.decodeFromString<RecordWateringRequest>(request.bodyText())
+        if (waterings.none { it.id == watering.id }) waterings += watering
+        return update(id) { it.copy(lastWateredDate = watering.timestamp) }
+    }
+
+    private fun MockRequestHandleScope.create(path: String, request: HttpRequestData): HttpResponseData {
+        val create = json.decodeFromString<CreatePlantRequest>(request.bodyText())
+        created += create
+        val plant = Plant(
+            id = "plant-${plants.size + 1}",
+            roomId = path.removePrefix("/rooms/").removeSuffix("/plants"),
+            name = create.name,
+            wateringIntervalDays = create.wateringIntervalDays,
+            x = create.x,
+            y = create.y,
+        )
+        plants[plant.id] = plant
+        return respondJson(plant, HttpStatusCode.Created)
+    }
+
+    private fun MockRequestHandleScope.update(id: String, change: (Plant) -> Plant): HttpResponseData {
+        val updated = plants[id]?.let(change) ?: return respondError(HttpStatusCode.NotFound)
+        plants[id] = updated
+        return respondJson(updated)
     }
 
     private inline fun <reified T> MockRequestHandleScope.respondJson(
