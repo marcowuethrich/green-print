@@ -3,15 +3,29 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
 }
 
 kotlin {
-    androidTarget {
+    compilerOptions {
+        // DriverFactory is an expect class (one SQLite driver per platform).
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
+    android {
+        namespace = "ch.wuethrich.greenprint.shared"
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
+            jvmTarget = JvmTarget.JVM_11
         }
     }
 
@@ -67,7 +81,6 @@ kotlin {
         }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
-            implementation(libs.sqldelight.web.worker.driver)
         }
     }
 }
@@ -77,17 +90,5 @@ sqldelight {
         create("GreenPrintDb") {
             packageName.set("ch.wuethrich.greenprint.db")
         }
-    }
-}
-
-android {
-    namespace = "ch.wuethrich.greenprint.shared"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
     }
 }

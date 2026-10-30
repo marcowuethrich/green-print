@@ -22,7 +22,7 @@ class DevBearerAuthMechanism : HttpAuthenticationMechanism {
         context: RoutingContext,
         identityProviderManager: IdentityProviderManager,
     ): Uni<SecurityIdentity> {
-        val authHeader = context.request().getHeader("Authorization")
+        val authHeader: String? = context.request().getHeader("Authorization")
         
         val token = authHeader
             ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
