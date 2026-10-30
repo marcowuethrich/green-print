@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Short records of the key architecture decisions: ADR-001 to ADR-014 were made before feature implementation began, the later ones as the project grew.
+Short records of the key architecture decisions: ADR-001 to ADR-014 were made before feature implementation began, the later ones as the project grew. Web means the Wasm target only: the JavaScript target was dropped with ADR-017.
 
 ---
 
@@ -25,7 +25,7 @@ Short records of the key architecture decisions: ADR-001 to ADR-014 were made be
 **Rationale:**
 - Provides a type-safe API for SQLite, ensuring consistency between the schema and Kotlin code.
 - Enables offline support by caching server data locally.
-- Supports all current targets (Android, iOS, JVM, JS, Wasm) using platform-specific drivers.
+- Supports all current targets (Android, iOS, JVM, Wasm) using platform-specific drivers (on the web, ADR-017).
 - Facilitates reactive UI updates by exposing database queries as Coroutine Flows.
 
 **Consequences:**
@@ -42,7 +42,7 @@ Short records of the key architecture decisions: ADR-001 to ADR-014 were made be
 
 **Rationale:**
 - Keeps JPA/Panache annotations and server-specific concerns out of the KMP module.
-- The `shared` module compiles to all client targets (Android, iOS, JVM, JS, Wasm); Panache entities would not compile there.
+- The `shared` module compiles to all client targets (Android, iOS, JVM, Wasm); Panache entities would not compile there.
 - A clean DTO/entity mapping layer on the server makes it easy to evolve the database schema independently of the API contract.
 
 **Boundary:**
@@ -59,7 +59,7 @@ server/         → Panache entities + mappers to/from DTOs
 **Decision:** Use **Koin** for DI across all client targets.
 
 **Rationale:**
-- De-facto standard for Kotlin Multiplatform DI; runs on all five targets (Android, iOS, JVM, JS, Wasm).
+- De-facto standard for Kotlin Multiplatform DI; runs on every target (Android, iOS, JVM, Wasm).
 - Modules are declared in `shared/commonMain` and can be extended per platform in `androidMain` / `iosMain` if needed.
 - Integrates directly with KMP ViewModel via `koin-compose-viewmodel`.
 
@@ -76,7 +76,7 @@ server/         → Panache entities + mappers to/from DTOs
 **Decision:** Use **Ktor Client** for all HTTP communication from the client side.
 
 **Rationale:**
-- Only HTTP library that supports all KMP targets: Android (OkHttp engine), iOS (Darwin engine), JVM (OkHttp/CIO), JS (Fetch), Wasm (Fetch).
+- Only HTTP library that supports all KMP targets: Android (OkHttp engine), iOS (Darwin engine), JVM (OkHttp/CIO), Wasm (Fetch).
 - Declared once in `shared/commonMain`; engine is swapped per platform in the Gradle source sets.
 - First-class support for coroutines, JSON (via `kotlinx.serialization`), and content negotiation.
 
@@ -189,6 +189,7 @@ Adopt the Android/KMP community naming pattern for resource strings in `composeA
 - Prevents duplicate strings for generic actions.
 - Developers must prioritize using `common_` strings where applicable.
 - Simplifies navigation within the resource files as features are grouped alphabetically by prefix.
+- `shared` holds no user-facing text: the ViewModels report typed reasons (`ErrorReason` for a failure, `PlantChange` for a saved plant change) and the UI maps each to one of these strings (`ui/ErrorReasonText.kt`).
 
 ---
 
@@ -274,3 +275,23 @@ The application must be fully navigable and operable via keyboard. Every screen 
 - A change that adds a finding fails the build; `./gradlew ktlintFormat` fixes most formatting findings automatically.
 - detekt 1.23 is pinned to the Kotlin compiler it was built with and runs without type resolution (only the `detekt` task per module; the per-source-set tasks are off) until detekt 2.x reads the current JDK.
 - Raising a threshold or adding a baseline is a change to this ADR, not a local workaround.
+
+---
+
+## ADR-017 — Web Persistence: SQLite in a Web Worker, Saved to IndexedDB
+
+**Decision:** The Wasm app's local cache is SQLite from **sql.js**, run in a web worker that speaks the protocol of SQLDelight's `WebWorkerDriver` (`composeApp/src/webMain/resources/greenprint-db.worker.js`). sql.js keeps the database in memory, so the worker saves a copy to **IndexedDB** after every committed write and opens that copy on the next start. SQLDelight generates the schema and queries **asynchronously** (`generateAsync`), and Wasm is the only web target: the JavaScript target is dropped.
+
+**Rationale:**
+- The screens read from the cache only (offline-first, ADR-002), so a web build without a real cache shows no data at all.
+- `WebWorkerDriver` is SQLDelight's driver for the browser; it can only answer asynchronously, which is why the schema and every query are generated as suspend calls. Android, iOS and the JVM run the same async schema through `Schema.synchronous()`, so there is one generated API.
+- sql.js needs no special HTTP headers, unlike SQLite's own wasm build with OPFS, which wants cross-origin isolation for its fastest mode. Saving the whole database to IndexedDB is cheap at this cache's size (tens of KB).
+- One web target keeps one set of web source sets, one lock file and one bundle to test.
+
+**Consequences:**
+- The web entry point opens the cache (`openWebCache`) before Koin starts, since the schema must be created or migrated first; SQLite's `user_version` holds the schema version, as on the other platforms.
+- `composeApp/webpack.config.d/` copies `sql-wasm-browser.wasm` next to the worker and runs the web dev server on port 8081, the server's dev CORS origin.
+- Repository code awaits query results (`awaitAsList()`, `awaitAsOne()`), and tests that seed a database outside a coroutine use the synchronous schema.
+- Each browser tab holds its own copy of the database; the last tab to save wins. A private window that refuses IndexedDB still gets a cache, for that visit only.
+- Ktor's fetch engine reports a request that got no answer as `kotlin.Error`; in the browser that is mapped to `NetworkError.Connectivity`, so the offline path works there as on the other platforms.
+

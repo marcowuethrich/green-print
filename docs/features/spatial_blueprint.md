@@ -36,11 +36,11 @@ Interactive placement of plants.
 - **API**: `PUT /plants/{id}/position` with `{"x": 0.25, "y": 0.75}` returns the updated plant. A coordinate outside 0.0..1.0 returns `400` with `{"code": "position_out_of_range", "field": "x" | "y"}`; the same check runs on `POST /rooms/{roomId}/plants` and `PUT /plants/{id}`. An unknown plant, or one in another user's space, returns `404`.
 - **Offline-first write-through** (inventory.md §6.2): `PlantRepository.updatePlantPosition` first writes the new position to SQLDelight with `S_PENDING` and a fresh `updatedAt`, then calls the API. Success marks the row `S_SYNCED`, a failure `S_ERROR`; either only applies if no newer move of the same plant was written meanwhile (the row's `updatedAt` still matches). Offline, the move stays on the device (including across restarts) and the screen shows a snackbar; the next refresh of the room sends every unconfirmed move before it fetches, and a refresh never overwrites an unconfirmed row with the server's copy (Last Write Wins). A plant the server no longer knows is dropped from the cache.
 - `PlantViewModel.movePlant` keeps one sync per plant in flight: a newer move of the same plant cancels the older request.
-- The blueprint works on Android, iOS and Desktop. The web (wasm) build has no local database yet and the screens read from it only, so the web app shows no plants (architecture/overview.md, *Web cache*).
+- The blueprint works on Android, iOS, Desktop and the web. On the web the cache is SQLite in a web worker, saved to IndexedDB (ADR-017), so an offline move survives a reload there too.
 
 ## 3. Room Management
 - **Rooms** act as the container for the 2D canvas.
-- Deleting a room that still has plants is refused for now: the app explains that the plants must be moved or archived first (`Room Not Empty` dialog).
+- Deleting a room that still has plants is refused for now: the app explains that the plants must be moved or archived first (`Room Not Empty` dialog). The server refuses it as well, with `409` `room_not_empty`, and counts archived plants too, since they are the room's history (inventory.md §4).
 
 ### Next Step
 - Let the delete dialog offer **Move plants** (pick another room of the space) or **Archive plants** (with a reason, ADR-009) and finish the deletion afterwards. This needs a move endpoint for plants (`PUT /plants/{id}/room`) and a room picker in the client.

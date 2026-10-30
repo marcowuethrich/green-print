@@ -20,9 +20,10 @@ Run in dev mode with live reload enabled:
 
 The Quarkus Dev UI is available while in dev mode at <http://localhost:8080/q/dev/>.
 
-Dev mode needs Docker: Dev Services start PostgreSQL in a container (see [Testing](#-testing)). In dev mode:
+Dev mode needs Docker: Dev Services start PostgreSQL 16 in a container, the same major version as the tests and Atlas (see [Testing](#-testing)). In dev mode:
 - OIDC is off and any `Authorization: Bearer <token>` is taken as the user's id (`DevBearerAuthMechanism`). The apps send a mock token (ADR-011).
-- A user without a space gets a demo one: three rooms and six plants spread over their blueprints (`DevDataSeeder`).
+- A user without a space gets a demo one: three rooms and six plants spread over their blueprints, last watered at different times so the list shows healthy, thirsty and dry plants (`DevDataSeeder`).
+- CORS allows `http://localhost:8081`, where `./gradlew :composeApp:wasmJsBrowserDevelopmentRun` serves the web app.
 - Hibernate updates the schema itself; production schema changes are Atlas migrations in `server/migrations/` (ADR-014).
 
 ---
@@ -34,13 +35,14 @@ Dev mode needs Docker: Dev Services start PostgreSQL in a container (see [Testin
 | `GET`, `POST` | `/spaces` | List the user's spaces, create one |
 | `GET`, `PUT`, `DELETE` | `/spaces/{id}` | Read, rename, delete a space |
 | `POST` | `/spaces/{spaceId}/rooms` | Create a room |
-| `PUT`, `DELETE` | `/rooms/{id}` | Rename, delete a room (its plants are deleted with it) |
+| `PUT`, `DELETE` | `/rooms/{id}` | Rename a room; delete an empty one (a room with plants, archived ones too, answers `409` `room_not_empty`) |
 | `GET`, `POST` | `/rooms/{roomId}/plants` | List a room's active plants, create one |
 | `PUT`, `DELETE` | `/plants/{id}` | Edit, delete a plant |
 | `PUT` | `/plants/{id}/position` | Move a plant on its room's blueprint: `{"x": 0.25, "y": 0.75}` |
-| `POST` | `/plants/{id}/archive` | Archive a plant with a reason |
+| `POST` | `/plants/{id}/waterings` | Record a watering: `{"id": "<uuid>", "timestamp": "<ISO-8601 instant>"}`; returns the plant with its `lastWateredDate`. A resent id is stored once |
+| `POST` | `/plants/{id}/archive` | Archive a plant with a reason: `DIED`, `GIFTED` or `SOLD` |
 
-Every call is scoped to the current user: another user's space, room or plant answers `404` (listing the plants of another user's room returns an empty list). Invalid input answers `400` with an `ApiError` body (`{"code": ..., "field": ...}`, see `resource/Validation.kt`): names are trimmed and must be 1–128 characters (`name_blank`, `name_too_long`); blueprint coordinates must lie in 0.0..1.0, edges included (`position_out_of_range`). A duplicate name answers `409`.
+Every call is scoped to the current user: another user's space, room or plant answers `404` (listing the plants of another user's room returns an empty list). Invalid input answers `400` with an `ApiError` body (`{"code": ..., "field": ...}`, see `resource/Validation.kt`): names are trimmed and must be 1–128 characters (`name_blank`, `name_too_long`); blueprint coordinates must lie in 0.0..1.0, edges included (`position_out_of_range`); the watering interval must be 1–365 days (`interval_out_of_range`); an archive reason must be one of the three (`archive_reason_invalid`); a watering needs a UUID id (`watering_id_invalid`) and a timestamp that parses and is not in the future (`timestamp_invalid`). A duplicate name answers `409`. Every plant carries `updatedAt`, the time of its last change on the server.
 
 ---
 

@@ -9,7 +9,7 @@ GreenPrint is a **Kotlin Multiplatform** spatial houseplant inventory app. Share
 | Module | Gradle plugin | What it holds |
 | :--- | :--- | :--- |
 | `androidApp` | `com.android.application` | The installable Android app: `MainActivity`, the Koin `Application`, the manifest and the launcher resources (ADR-015). |
-| `composeApp` | `org.jetbrains.kotlin.multiplatform` + `com.android.kotlin.multiplatform.library` | The Compose Multiplatform UI for every platform, plus the Desktop (`Main.kt`), Web (`webMain`) and iOS (`MainViewController`) entry points. |
+| `composeApp` | `org.jetbrains.kotlin.multiplatform` + `com.android.kotlin.multiplatform.library` | The Compose Multiplatform UI for every platform, plus the Desktop (`Main.kt`), Web (`webMain`, with the cache's web worker and `webpack.config.d`) and iOS (`MainViewController`) entry points. |
 | `shared` | `org.jetbrains.kotlin.multiplatform` + `com.android.kotlin.multiplatform.library` | DTOs, KMP ViewModels, repositories, the Ktor client and the SQLDelight cache. Also used by `server` for the DTOs and the blueprint coordinate limits both sides apply. |
 | `server` | `io.quarkus` | The Quarkus REST API with its own Panache entities. |
 | `iosApp` | — (Xcode) | The SwiftUI shell that hosts the `composeApp` framework. |
@@ -36,10 +36,10 @@ C4Container
     Container(desktopApp, "Desktop App", "composeApp / JVM", "Desktop client for power users.")
     Container(webApp, "Web App", "composeApp / Wasm", "Browser-based client — no install required.")
 
-    Container(shared, "Shared Module", "Kotlin Multiplatform · Ktor · Koin · SQLDelight", "Domain DTOs, KMP ViewModels, and Offline-First Repositories with a local SQLDelight cache (none yet on the web, see below).")
+    Container(shared, "Shared Module", "Kotlin Multiplatform · Ktor · Koin · SQLDelight", "Domain DTOs, KMP ViewModels, and Offline-First Repositories with a local SQLDelight cache (on the web: SQLite in a web worker, saved to IndexedDB).")
 
     Container(server, "Backend Server", "Quarkus / Kotlin · Hibernate Reactive Panache · quarkus-oidc", "REST API. Owns its own Panache entity layer (independent of shared DTOs). Validates Bearer tokens issued by the OIDC provider.")
-    ContainerDb(db, "Server Database", "PostgreSQL + Atlas Migrations", "Persists spaces, rooms, plants and users. Schema lifecycle managed by Atlas (ADR-014).")
+    ContainerDb(db, "Server Database", "PostgreSQL + Atlas Migrations", "Persists spaces, rooms, plants, watering events and users. Schema lifecycle managed by Atlas (ADR-014).")
   }
 
   Rel(user, androidApp, "Uses", "Touch UI")
@@ -62,7 +62,7 @@ C4Container
 **Status notes**
 - **Login**: the clients do not run an OIDC flow yet; a no-op `AuthRepository` sends a mock token (ADR-011). In the dev profile the server turns OIDC off and takes any bearer token as the user (`DevBearerAuthMechanism`); tests use `@TestSecurity`.
 - **Notifications**: local watering reminders (AlarmManager, UNUserNotificationCenter) are specified in [notifications.md](../features/notifications.md) and not built yet.
-- **Web cache**: the Wasm build has no local database yet. Its `DriverFactory` returns a driver that stores nothing and reads nothing, and the screens read from the cache only, so the web app builds and starts but shows no spaces, rooms or plants. A real cache needs SQLDelight's web worker driver (sql.js) and an async-generated schema. The JS target points that driver at a `sqldelight-worker.js` that is not bundled yet.
+- **Web cache**: the Wasm app's cache is SQLite (sql.js) in a web worker (`composeApp/src/webMain/resources/greenprint-db.worker.js`) behind SQLDelight's `WebWorkerDriver`, saved to IndexedDB after each committed write (ADR-017). The schema is generated asynchronously; the web entry point opens the cache before Koin starts. Wasm is the only web target.
 
 ---
 
@@ -78,7 +78,7 @@ C4Component
 
   Container_Boundary(shared_logic, "Shared Module") {
     Component(vm, "KMP ViewModels", "AndroidX Lifecycle", "Expose a StateFlow of UI state and a SharedFlow of one-shot effects.")
-    Component(repo, "Offline-First Repository", "Kotlin", "Orchestrates data between Local Store and API Client. Blueprint moves are written through the local store first.")
+    Component(repo, "Offline-First Repository", "Kotlin", "Orchestrates data between Local Store and API Client. Blueprint moves and waterings are written through the local store first.")
     Component(db_store, "Local Store", "SQLDelight", "Persistent local cache for offline-first capabilities.")
     Component(api_client, "Remote API Client", "Ktor", "Encapsulates REST communication and authentication headers.")
   }
@@ -116,7 +116,7 @@ C4Component
 
 ## Dynamic Diagram — Synchronization Flow
 
-This diagram shows the "Write-Through Cache" and "Last Write Wins" strategy as built for moving a plant on the Spatial Blueprint ([spatial_blueprint.md](../features/spatial_blueprint.md)). The other plant writes still call the API first and cache its answer (inventory.md §6.2).
+This diagram shows the "Write-Through Cache" and "Last Write Wins" strategy as built for moving a plant on the Spatial Blueprint ([spatial_blueprint.md](../features/spatial_blueprint.md)). Quick Water follows the same two phases: the watering is logged in `WateringEventEntity` and the plant's `lastWateredDate` moves locally, then `POST /plants/{id}/waterings` confirms it (inventory.md §5, §6.2). The other plant writes still call the API first and cache its answer.
 
 ```mermaid
 sequenceDiagram
@@ -151,7 +151,7 @@ sequenceDiagram
     end
     end
 
-    Note over R,A: The next refresh of the room first resends every row that is not S_SYNCED,<br/>then fetches; an unsynced row is never overwritten by the server's copy.
+    Note over R,A: The next refresh of the room first resends every unsent watering and every row that is not S_SYNCED,<br/>then fetches; a row with an unconfirmed change is never overwritten by the server's copy.
 ```
 
 ---

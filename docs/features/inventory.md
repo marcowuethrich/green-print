@@ -22,12 +22,12 @@ This spec describes the target. What the code does today:
 | Spaces, rooms, plants (create, edit, delete), archiving | Built (§4, §5) |
 | Spatial Blueprint, offline-first plant moves | Built ([spatial_blueprint.md](spatial_blueprint.md)) |
 | Health Barometer | Built (§5) |
-| Quick Water | UI stub: shows a snackbar, no watering event is stored yet |
+| Quick Water, watering events | Built, offline-first (§5, §6.2); no Undo yet |
 | OIDC login, secure token storage | Not yet: a no-op `AuthRepository` returns a mock token (ADR-011); the dev and test server profiles disable OIDC |
-| Photos, watering events, "Jungle Graveyard" view | Not yet |
-| Offline writes for everything except blueprint moves | Not yet (§6.2) |
+| Photos, watering history view, "Jungle Graveyard" view | Not yet |
+| Offline writes for everything except blueprint moves and waterings | Not yet (§6.2) |
 | Observability (§6.3), E2E tests (§7) | Not yet |
-| Web (wasm) app | Builds and starts, but has no local cache yet, so it shows no data ([overview](../architecture/overview.md)) |
+| Web (wasm) app | Built: the local cache is SQLite in a web worker, saved to IndexedDB (ADR-017) |
 
 ---
 
@@ -44,7 +44,7 @@ The system follows a strict hierarchy defined in ADR-007.
 
 ### Data Constraints & Validation
 - **Names**: Trimmed, non-empty, 1–128 characters. The server answers `400` with `name_blank` or `name_too_long`.
-- **Intervals**: Integer, 1–365 days (clamped). *Not enforced yet*: the form falls back to 7 days when the field is not a number.
+- **Intervals**: Integer, 1–365 days (`WateringInterval` in `shared`). The form clamps into that range and falls back to 7 days when the field holds no number; the server answers `400` with `interval_out_of_range` and the `field` `wateringIntervalDays` on create and update.
 - **Positions**: `x` and `y` place the plant on its room's blueprint, normalized to 0.0–1.0 with both edges allowed (ADR-008). The server answers `400` with `position_out_of_range` and the `field` (`x` or `y`) on create, update and `PUT /plants/{id}/position`.
 - **Photos**: Max 5MB raw; client-side resize to 1024px (≤ 500KB) for upload.
 - **Uniqueness**: Space names are unique per user, room names per space, and plant names per room. A duplicate answers `409`.
@@ -80,7 +80,7 @@ The system follows a strict hierarchy defined in ADR-007.
 - **Single Space MVP**: UI restricts to one space; "Create" button hidden if space exists.
 - **Room Deletion**:
   - If the room still has plants, the app refuses and explains in a "Room Not Empty" dialog that they must be moved or archived first. The check runs against the local cache.
-  - The server's `DELETE /rooms/{id}` does not check: it deletes the room's plants with it (`ON DELETE CASCADE`).
+  - The server's `DELETE /rooms/{id}` refuses too: a room with any plant, archived ones included, answers `409` with `{"code": "room_not_empty"}`. Archived plants are the room's history (ADR-009), so a room that has them is kept. The app shows the same dialog for that answer, since its cache does not hold archived plants.
   - Next step: the dialog offers "Move plants" or "Archive plants" and deletes the room afterwards ([spatial_blueprint.md §3](spatial_blueprint.md)).
 - **Space Deletion**: Two-step confirmation; requires user to type the space name to confirm.
 - **Icon Selection**: Backend assigns defaults (`default_space`, `default_room`) if `null` is sent during creation.
@@ -100,13 +100,14 @@ The system follows a strict hierarchy defined in ADR-007.
 ### Flows & Restrictions
 - **Watering Logic**: `nextWateringDate = lastWateringTimestamp + (intervalDays * 24h)`.
 - **Barometer**: The bar shows the share of the watering interval still left (100% just watered, 0% due or never watered). It is coloured by `HydrationLevel`: the primary green above 70%, the warning amber above 30%, the error red below that.
-- **Quick Water**: Tapping the water action on a plant card logs an event immediately; shows a 5s "Undo" snackbar. *Today*: a stub that only shows a snackbar.
+- **Quick Water**: Tapping the water action on a plant card logs a watering at once and the hydration bar fills, online or offline (§6.2). A snackbar confirms it, or says the watering is saved on this device and syncs later. *Next step*: a 5s "Undo" in that snackbar, which needs a way to remove a watering on the server.
+- **Watering API**: `POST /plants/{id}/waterings` with `{"id": "<uuid>", "timestamp": "<ISO-8601 instant>"}` logs the watering and returns the plant. The client picks the id, so a resent watering is stored once; a watering older than the plant's last one is logged without moving `lastWateredDate`. A malformed id answers `400` `watering_id_invalid`, a malformed or future timestamp (more than 5 minutes ahead) `400` `timestamp_invalid`, an unknown plant `404`.
 - **Photo Workflow**: Native camera/gallery pickers; compressed to ≤ 500KB before upload.
 - **Editing**: The form edits name, species and interval today; every other field (pot size, soil type, photo, position) is kept as it is. Updates follow the "Last Write Wins" strategy.
 - **Placement**: A new plant lands on the free blueprint spot farthest from the room's other plants; it is moved on the blueprint afterwards.
 - **Archiving (Deletion)**:
   - Deletion is handled as "Archiving" to preserve history (ADR-009).
-  - User must select a reason: `DIED`, `GIFTED`, or `SOLD`. The plant menu offers `DIED` and `GIFTED` today; the server stores any reason.
+  - User must select a reason: `DIED`, `GIFTED`, or `SOLD` (`ArchiveReason` in `shared`); the plant menu offers all three. Any other reason answers `400` with `archive_reason_invalid`.
   - Archived plants are moved to a separate "Jungle Graveyard" view (read-only). *Today*: they leave the room's list and blueprint; the view is not built yet.
 
 ---
@@ -117,14 +118,16 @@ The system follows a strict hierarchy defined in ADR-007.
 - **Pattern**: Unidirectional Data Flow (UDF).
 - **State**: `StateFlow<UiState>` (Loading, Success, Error).
 - **Events**: One-shot effects (snackbars, dialogs, navigation) on a `SharedFlow<UiEffect>`.
+- **Messages**: The ViewModels hold no user-facing text. A failure is an `ErrorReason`, a success a typed change (`PlantChange`), and the screens map each to a string resource (ADR-012).
 
 ### 6.2 Synchronization & Persistence
 - **Write-Through Cache**: Repository writes to SQLDelight first (Offline-First), then syncs to API.
   - *Built for blueprint moves*: `updatePlantPosition` saves the move locally as `S_PENDING`, then sends it; the next refresh resends unconfirmed moves ([spatial_blueprint.md §2](spatial_blueprint.md)).
+  - *Built for waterings*: `waterPlant` writes a `WateringEventEntity` row (`S_PENDING`, with a client-made UUID) and the plant's new `lastWateredDate` in one transaction, then sends it. Success marks the watering `S_SYNCED` and takes the server's date (unless a newer watering still waits); a failure marks it `S_ERROR`. The next refresh of the room resends every unsent watering under its id, before the moves. The plant row's own `syncStatus` stays about its position, so a watering never settles or hides a pending move.
   - *Other writes* (create, edit, archive, delete) still call the API first and update the cache from its answer, so they need a connection.
-- **Read Path**: Screens observe SQLDelight; a refresh fetches from the API and replaces the cached rows (for plants, only the rows that are `S_SYNCED`).
+- **Read Path**: Screens observe SQLDelight; a refresh fetches from the API and replaces the cached rows (for plants, only the rows with no unconfirmed move and no unsent watering).
 - **Sync Status**: `S_SYNCED`, `S_PENDING`, `S_ERROR` flags on every entity (`SyncStatus` in `shared`).
-- **Conflict Strategy**: "Last Write Wins" based on client-side `updatedAt` timestamps. A refresh never overwrites a row that is not `S_SYNCED`.
+- **Conflict Strategy**: "Last Write Wins" based on client-side `updatedAt` timestamps. A refresh never overwrites a row with a change the server has not confirmed. The server stamps every plant change in its own `updated_at`, which the API returns as `updatedAt`.
 
 ### 6.3 Observability
 - **Logging**: Structured logging via Kermit.
