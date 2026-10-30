@@ -1,5 +1,7 @@
 package ch.wuethrich.greenprint.plant
 
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import ch.wuethrich.greenprint.db.GreenPrintDb
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
@@ -32,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -166,7 +169,7 @@ class PlantViewModelTest {
         return effects
     }
 
-    private fun localFern(): PlantEntity = queries.selectPlantById(FERN.id).executeAsOne()
+    private suspend fun localFern(): PlantEntity = queries.selectPlantById(FERN.id).awaitAsOne()
 
     private fun PlantEntity.position(): Pair<Float, Float> = x.toFloat() to y.toFloat()
 
@@ -175,10 +178,13 @@ class PlantViewModelTest {
 
     private fun inMemoryQueries(): GreenPrintDbQueries {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-        GreenPrintDb.Schema.create(driver)
+        GreenPrintDb.Schema.synchronous().create(driver)
         return GreenPrintDb(driver).greenPrintDbQueries.apply {
-            insertSpace("space-1", "Home", null, SyncStatus.SYNCED, 0L)
-            insertRoom(ROOM_ID, "space-1", "Living Room", null, SyncStatus.SYNCED, 0L)
+            // The JDBC driver answers at once, so the suspend queries never actually suspend here.
+            runBlocking {
+                insertSpace("space-1", "Home", null, SyncStatus.SYNCED, 0L)
+                insertRoom(ROOM_ID, "space-1", "Living Room", null, SyncStatus.SYNCED, 0L)
+            }
         }
     }
 

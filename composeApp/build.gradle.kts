@@ -45,11 +45,6 @@ kotlin {
 
     jvm()
 
-    js {
-        browser()
-        binaries.executable()
-    }
-
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
@@ -77,6 +72,13 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.compose.ui.test)
+        }
+        wasmJsMain.dependencies {
+            implementation(libs.kotlinx.browser)
+            // The browser cache (ADR-017): sql.js runs in src/webMain/resources/greenprint-db.worker.js,
+            // and webpack.config.d/sqljs.js copies its wasm file into the bundle.
+            implementation(npm("sql.js", libs.versions.sqljs.get()))
+            implementation(devNpm("copy-webpack-plugin", libs.versions.copyWebpackPlugin.get()))
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)

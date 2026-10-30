@@ -1,5 +1,6 @@
 package ch.wuethrich.greenprint.db
 
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import java.io.File
@@ -15,7 +16,7 @@ actual class DriverFactory {
         return JdbcSqliteDriver(
             url = "jdbc:sqlite:${File(directory, "greenprint.db").absolutePath}",
             properties = Properties(),
-            schema = GreenPrintDb.Schema,
+            schema = GreenPrintDb.Schema.synchronous(),
         )
     }
 }

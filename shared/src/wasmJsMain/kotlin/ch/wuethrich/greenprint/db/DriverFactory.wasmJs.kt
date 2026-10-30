@@ -1,67 +1,42 @@
 package ch.wuethrich.greenprint.db
 
-import app.cash.sqldelight.Query
-import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.db.SqlPreparedStatement
+import app.cash.sqldelight.driver.worker.WebWorkerDriver
+import org.w3c.dom.Worker
 
 /**
- * The web build has no local cache yet: this driver persists nothing and every read is empty. The
- * screens read from the cache only, so the wasm app shows no spaces, rooms or plants even when the
- * server has them. A real cache needs SQLDelight's sql.js web worker driver and an async-generated
- * schema.
+ * The browser's cache (ADR-017): SQLite in a web worker that saves the database to IndexedDB. Its
+ * schema can only be created asynchronously, so the web entry point opens the cache with
+ * [openWebCache] before Koin starts and hands this factory to it.
  */
-actual class DriverFactory {
-    actual fun createDriver(): SqlDriver = NoOpSqlDriver
+actual class DriverFactory internal constructor(private val driver: SqlDriver) {
+    actual fun createDriver(): SqlDriver = driver
 }
 
-private object NoOpSqlDriver : SqlDriver {
-    override fun execute(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqlPreparedStatement.() -> Unit)?,
-    ): QueryResult<Long> = QueryResult.Value(0L)
-
-    override fun <R> executeQuery(
-        identifier: Int?,
-        sql: String,
-        mapper: (SqlCursor) -> QueryResult<R>,
-        parameters: Int,
-        binders: (SqlPreparedStatement.() -> Unit)?,
-    ): QueryResult<R> = mapper(EmptyCursor)
-
-    override fun newTransaction(): QueryResult<Transacter.Transaction> = QueryResult.Value(NoOpTransaction())
-
-    override fun currentTransaction(): Transacter.Transaction? = null
-
-    override fun close() = Unit
-
-    override fun addListener(vararg queryKeys: String, listener: Query.Listener) = Unit
-
-    override fun removeListener(vararg queryKeys: String, listener: Query.Listener) = Unit
-
-    override fun notifyListeners(vararg queryKeys: String) = Unit
+/**
+ * Talks to the cache in [worker] (the app bundles it: `composeApp/src/webMain/resources`) and brings
+ * the saved database up to the current schema.
+ */
+suspend fun openWebCache(worker: Worker): DriverFactory {
+    val driver = WebWorkerDriver(worker)
+    driver.migrateToCurrentSchema()
+    return DriverFactory(driver)
 }
 
-private object EmptyCursor : SqlCursor {
-    override fun next(): QueryResult<Boolean> = QueryResult.Value(false)
-
-    override fun getString(index: Int): String? = null
-
-    override fun getLong(index: Int): Long? = null
-
-    override fun getBytes(index: Int): ByteArray? = null
-
-    override fun getDouble(index: Int): Double? = null
-
-    override fun getBoolean(index: Int): Boolean? = null
-}
-
-private class NoOpTransaction : Transacter.Transaction() {
-    override val enclosingTransaction: Transacter.Transaction? = null
-
-    override fun endTransaction(successful: Boolean): QueryResult<Unit> = QueryResult.Unit
+/** SQLite's `user_version` holds the schema version, as the native and Android drivers keep it. */
+private suspend fun SqlDriver.migrateToCurrentSchema() {
+    val schema = GreenPrintDb.Schema
+    val version = executeQuery(
+        identifier = null,
+        sql = "PRAGMA user_version",
+        mapper = { cursor -> QueryResult.Value(if (cursor.next().value) cursor.getLong(0) ?: 0L else 0L) },
+        parameters = 0,
+    ).await()
+    when {
+        version == 0L -> schema.create(this).await()
+        version < schema.version -> schema.migrate(this, version, schema.version).await()
+        else -> return
+    }
+    execute(identifier = null, sql = "PRAGMA user_version = ${schema.version}", parameters = 0).await()
 }

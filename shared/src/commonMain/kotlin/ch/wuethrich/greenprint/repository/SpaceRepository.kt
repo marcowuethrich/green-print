@@ -1,5 +1,6 @@
 package ch.wuethrich.greenprint.repository
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
@@ -42,7 +43,7 @@ class SpaceRepositoryImpl(
             .mapToList(Dispatchers.Default)
             .map { entities ->
                 val spaces = entities.map { entity ->
-                    val rooms = queries.selectRoomsBySpaceId(entity.id).executeAsList().map { it.toDomain() }
+                    val rooms = queries.selectRoomsBySpaceId(entity.id).awaitAsList().map { it.toDomain() }
                     Space(entity.id, entity.name, entity.icon, rooms, entity.syncStatus, entity.updatedAt)
                 }
                 NetworkResult.Success(spaces)

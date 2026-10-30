@@ -1,5 +1,6 @@
 package ch.wuethrich.greenprint.repository
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
@@ -74,7 +75,7 @@ class PlantRepositoryImpl(
                         // A row still waiting for the server keeps its local state (last write wins).
                         val unsyncedIds = queries
                             .selectUnsyncedPlantsByRoomId(roomId)
-                            .executeAsList()
+                            .awaitAsList()
                             .mapTo(mutableSetOf()) { it.id }
                         queries.deleteSyncedPlantsByRoomId(roomId)
                         result.data.filterNot { it.id in unsyncedIds }.forEach { insertPlantIntoDb(it) }
@@ -153,7 +154,7 @@ class PlantRepositoryImpl(
     }
 
     private suspend fun syncPendingPositions(roomId: String) {
-        queries.selectUnsyncedPlantsByRoomId(roomId).executeAsList().forEach { plant ->
+        queries.selectUnsyncedPlantsByRoomId(roomId).awaitAsList().forEach { plant ->
             val result = pushPosition(plant.id, plant.x.toFloat(), plant.y.toFloat(), plant.updatedAt)
             // The plant is gone on the server: there is nothing left to move.
             if (result is NetworkResult.Failure && result.error == NetworkError.NotFound) {
@@ -174,7 +175,7 @@ class PlantRepositoryImpl(
         return result
     }
 
-    private fun insertPlantIntoDb(plant: Plant) {
+    private suspend fun insertPlantIntoDb(plant: Plant) {
         queries.insertPlant(
             id = plant.id,
             roomId = plant.roomId,

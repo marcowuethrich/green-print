@@ -2,6 +2,7 @@ package ch.wuethrich.greenprint.space
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import ch.wuethrich.greenprint.db.GreenPrintDbQueries
 import ch.wuethrich.greenprint.model.NetworkError
 import ch.wuethrich.greenprint.model.NetworkResult
@@ -136,9 +137,9 @@ class SpaceViewModel(
     fun deleteRoom(id: String, force: Boolean = false) {
         viewModelScope.launch {
             if (!force) {
-                val hasPlants = queries.selectPlantsByRoomId(id).executeAsList().isNotEmpty()
+                val hasPlants = queries.selectPlantsByRoomId(id).awaitAsList().isNotEmpty()
                 if (hasPlants) {
-                    val room = queries.selectAllRooms().executeAsList().find { it.id == id }
+                    val room = queries.selectAllRooms().awaitAsList().find { it.id == id }
                     _uiEffect.emit(SpaceUiEffect.RoomHasPlants(id, room?.name ?: ""))
                     return@launch
                 }

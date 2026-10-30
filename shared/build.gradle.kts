@@ -34,10 +34,6 @@ kotlin {
 
     jvm()
 
-    js {
-        browser()
-    }
-
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
@@ -57,6 +53,7 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.sqldelight.coroutines)
+            implementation(libs.sqldelight.async.extensions)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -75,12 +72,10 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.sqldelight.sqlite.driver)
         }
-        jsMain.dependencies {
-            implementation(libs.ktor.client.js)
-            implementation(libs.sqldelight.web.worker.driver)
-        }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.sqldelight.web.worker.driver)
+            implementation(libs.kotlinx.browser)
         }
     }
 }
@@ -89,6 +84,9 @@ sqldelight {
     databases {
         create("GreenPrintDb") {
             packageName.set("ch.wuethrich.greenprint.db")
+            // The web worker driver can only answer asynchronously, so every query is generated as a
+            // suspend call; the other platforms' drivers run it synchronously (ADR-017).
+            generateAsync.set(true)
         }
     }
 }
